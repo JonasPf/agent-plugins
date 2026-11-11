@@ -1,0 +1,77 @@
+[
+  {
+    "name": "read",
+    "description": "Read a file from the workspace.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path, relative to the workspace."
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Lines to skip from the top. Omit to start at the first line."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Most lines to return. Omit to read to the end."
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "write",
+    "description": "Write a file in the workspace, creating or replacing it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path."
+        },
+        "content": {
+          "type": "string",
+          "description": "Full file content."
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "edit",
+    "description": "Replace an exact string in a workspace file.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path."
+        },
+        "old": {
+          "type": "string",
+          "description": "Exact text to replace."
+        },
+        "new": {
+          "type": "string",
+          "description": "Replacement text."
+        },
+        "replace_all": {
+          "type": "boolean",
+          "description": "Replace every occurrence of old. Without it, old must appear exactly once or the edit is refused."
+        }
+      },
+      "required": [
+        "path",
+        "old",
+        "new"
+      ]
+    }
+  }
+]

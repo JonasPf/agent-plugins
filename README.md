@@ -1,0 +1,65 @@
+# agent-plugins
+
+Tools for [the agent](https://github.com/JonasPf/agent), packaged as
+[MCP Bundles](https://github.com/modelcontextprotocol/mcpb). Each bundle is one
+small MCP server in Go, built as a single program with nothing to install
+beside it, so it also runs in any other host that takes MCP bundles or a local
+MCP server.
+
+| Bundle | Tools | Needs |
+|---|---|---|
+| `files` | `read`, `write`, `edit` | nothing |
+| `shell` | `bash` | a host that allows a call 15 minutes |
+| `clock` | `clock` | nothing |
+| `web-fetch` | `web_fetch` | network |
+| `web-search` | `web_search` | a [Tavily](https://tavily.com) API key, set in the bundle's settings |
+| `web-browse` | `web_browse` | Linux, with chromium at `/usr/bin/chromium` |
+
+A bundle is the unit of permission: tools that need the same things live
+together, and a tool that needs more has a bundle of its own.
+
+## What a server may assume
+
+- **The working directory is the workspace.** The file tools reach nothing
+  outside the directory the server was started in. Where the host confines the
+  server, the operating system enforces that; the tools' own check is the error
+  message, not the boundary.
+- **Nothing is kept between calls.** The agent starts the server again for
+  every call. Anything worth keeping is a file in the working directory.
+- **No host is assumed.** A server does not rely on variables only one host
+  sets. The one exception is `AGENT_SKILL_DIRS`, which `read` uses when it is
+  there and does without when it is not.
+
+## Layout
+
+```
+bundles/<bundle>/manifest.json     the MCP Bundle manifest (0.3, server.type "binary")
+bundles/<bundle>/tools.json        what a model is shown: name, description, input schema
+bundles/<bundle>/*.go              the server and its tests
+bundles/<bundle>/evals/<tool>.json eval cases for each tool's description
+internal/serve                     turns the two files and the code into an MCP server
+internal/servetest                 calls a bundle over the protocol, for tests
+internal/workspace, internal/web   what the tools share
+cmd/pack                           builds a .mcpb for one platform
+```
+
+## Working on it
+
+```sh
+task check                 # format, vet, build, test: the gate before a commit
+task pack BUNDLE=clock     # dist/clock-<version>-<os>-<arch>.mcpb for each platform
+```
+
+`web-browse`'s browser test needs chromium at `/usr/bin/chromium` and is
+skipped where there is none; CI has it and fails without it.
+
+## Releasing a bundle
+
+Change `version` in the bundle's `manifest.json`, merge, then tag the commit
+`<bundle>-v<version>` (for example `clock-v0.1.0`) and push the tag. The
+release holds one `.mcpb` per platform and a `sha256sums.txt`.
+
+## Trying a bundle in the agent
+
+Unpack a Linux `.mcpb` (it is a zip) into `plugins/<bundle>/` in the agent's
+state directory and reload its tools.

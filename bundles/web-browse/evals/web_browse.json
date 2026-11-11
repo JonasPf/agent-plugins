@@ -1,0 +1,80 @@
+{
+  "cases": [
+    {
+      "name": "opens a named page",
+      "prompt": "Open https://example.com and tell me the page's heading.",
+      "tools": [
+        "web_browse"
+      ],
+      "expect": {
+        "tool": "web_browse",
+        "args_match": {
+          "url": "example\\.com"
+        },
+        "clean": true
+      }
+    },
+    {
+      "name": "reaches for it on a page built by scripts",
+      "prompt": "The prices on https://example.com/items are filled in by JavaScript after the page loads. What does the page say?",
+      "tools": [
+        "web_browse"
+      ],
+      "expect": {
+        "tool": "web_browse",
+        "args_match": {
+          "url": "example\\.com/items"
+        },
+        "clean": true
+      }
+    },
+    {
+      "name": "fetches a JSON endpoint",
+      "prompt": "Get the JSON at https://api.github.com/repos/golang/go and tell me what fields it has.",
+      "tools": [
+        "web_browse"
+      ],
+      "expect": {
+        "tool": "web_browse",
+        "args_match": {
+          "url": "api\\.github\\.com/repos/golang/go"
+        },
+        "clean": true
+      }
+    },
+    {
+      "name": "takes the hint when a fetch says the page needs scripts",
+      "prompt": "I called web_fetch on https://shop.example.com/item/42 and it returned:\n\nLoading\u2026\n\n---\n[web_fetch] This page's text appears to be written by its scripts, which did not run here \u2014 what is above may be only the shell the server ships. Call web_browse on the same URL to read the page as a person would see it.\n\nGet me the item's price.",
+      "tools": [
+        "web_fetch",
+        "web_browse"
+      ],
+      "expect": {
+        "tool": "web_browse",
+        "args_match": {
+          "url": "shop\\.example\\.com/item/42"
+        },
+        "not_tools": [
+          "web_fetch"
+        ]
+      }
+    },
+    {
+      "name": "takes the hint when a fetch fails outright",
+      "prompt": "I called web_fetch on https://shop.example.com/item/42 and it returned:\n\nhttps://shop.example.com/item/42 returned 403 Forbidden. The body it sent:\n\nAccess denied.\n\n[web_fetch] A browser may still reach it: the page may be served only to one, or assembled by scripts this request did not run. Call web_browse on the same URL. If that fails too, this page is out of reach — look for the information elsewhere rather than fetching this URL again.\n\nGet me the item's price.",
+      "tools": [
+        "web_fetch",
+        "web_browse"
+      ],
+      "expect": {
+        "tool": "web_browse",
+        "args_match": {
+          "url": "shop\\.example\\.com/item/42"
+        },
+        "not_tools": [
+          "web_fetch"
+        ]
+      }
+    }
+  ]
+}

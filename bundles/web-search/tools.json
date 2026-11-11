@@ -1,0 +1,22 @@
+[
+  {
+    "name": "web_search",
+    "description": "Search the web and return result titles, URLs, and snippets. It calls a search API with the agent's own key, so there is nothing to sign in to; a search when no key is configured fails saying so, and is the operator's to fix. Follow a result with web_fetch, or web_browse if the page needs its scripts to run.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Search query."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum results, default 10. It is what the API is asked for, so ask for what you will read."
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  }
+]

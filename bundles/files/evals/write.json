@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "name": "writes the requested content",
+      "prompt": "Create a file called greeting.txt in the workspace containing exactly: hello",
+      "tools": [
+        "write"
+      ],
+      "expect": {
+        "tool": "write",
+        "args_match": {
+          "path": "greeting\\.txt",
+          "content": "hello"
+        },
+        "clean": true
+      }
+    }
+  ]
+}

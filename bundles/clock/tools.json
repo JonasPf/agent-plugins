@@ -1,0 +1,16 @@
+[
+  {
+    "name": "clock",
+    "description": "The current date and time, in UTC and in the agent's local zone.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "string",
+          "description": "Optional Go-style duration to add, e.g. 2m, 3h, -30m, 48h. The result is the time that far from now, which is what a schedule wants when a request names an absolute point like \"tomorrow at nine\"."
+        }
+      },
+      "required": []
+    }
+  }
+]

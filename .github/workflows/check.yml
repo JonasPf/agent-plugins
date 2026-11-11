@@ -1,0 +1,40 @@
+# What every change has to pass. It runs `task check` rather than a copy of
+# what that does, so the pipeline and the local command cannot drift apart.
+
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Debian, because the agent's image is Debian, and web-browse drives the
+    # chromium that image installs at /usr/bin/chromium. On the Ubuntu runner
+    # that package is a stub for a snap, which is a different browser.
+    container:
+      image: golang:1.25-bookworm
+      options: --init
+    env:
+      # Here a test that needs the browser fails without it rather than skipping.
+      PLUGINS_TEST_FULL: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the browser
+        run: apt-get update && apt-get install -y --no-install-recommends chromium
+
+      - name: Install Task
+        run: sh -c "$(curl -fsSL https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+      # The checkout is owned by a different uid than the one running git here.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: task check
+        run: task check

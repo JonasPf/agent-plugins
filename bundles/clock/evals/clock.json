@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "name": "asks the time directly",
+      "prompt": "What is today's date?",
+      "tools": [
+        "clock"
+      ],
+      "expect": {
+        "tool": "clock",
+        "clean": true
+      }
+    },
+    {
+      "name": "uses the offset rather than doing arithmetic",
+      "prompt": "What will the UTC time be in three hours?",
+      "tools": [
+        "clock"
+      ],
+      "expect": {
+        "tool": "clock",
+        "args_match": {
+          "offset": "^\\+?3h$"
+        },
+        "clean": true
+      }
+    }
+  ]
+}

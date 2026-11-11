@@ -1,0 +1,35 @@
+{
+  "manifest_version": "0.3",
+  "name": "clock",
+  "display_name": "Clock",
+  "version": "0.1.0",
+  "description": "The current date and time.",
+  "author": {
+    "name": "JonasPf",
+    "url": "https://github.com/JonasPf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JonasPf/agent-plugins"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server",
+    "mcp_config": {
+      "command": "${__dirname}/server",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "clock",
+      "description": "The current date and time, in UTC and in the agent's local zone."
+    }
+  ],
+  "_meta": {
+    "io.github.jonaspf.agent": {
+      "timeout_seconds": 10
+    }
+  }
+}

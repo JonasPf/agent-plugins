@@ -1,0 +1,45 @@
+{
+  "cases": [
+    {
+      "name": "an API endpoint goes to the cheap tool",
+      "prompt": "Fetch https://api.github.com/repos/golang/go and tell me the repository's description.",
+      "tools": ["web_fetch", "web_browse"],
+      "expect": {
+        "tool": "web_fetch",
+        "args_match": {"url": "api\\.github\\.com"},
+        "not_tools": ["web_browse"],
+        "clean": true
+      }
+    },
+    {
+      "name": "a plain document goes to the cheap tool",
+      "prompt": "Read https://raw.githubusercontent.com/golang/go/master/README.md and tell me what it says.",
+      "tools": ["web_fetch", "web_browse"],
+      "expect": {
+        "tool": "web_fetch",
+        "not_tools": ["web_browse"],
+        "clean": true
+      }
+    },
+    {
+      "name": "an unknown page starts cheap rather than in a browser",
+      "prompt": "Have a look at https://example.com and tell me what it says.",
+      "tools": ["web_fetch", "web_browse"],
+      "expect": {
+        "tool": "web_fetch",
+        "not_tools": ["web_browse"],
+        "clean": true
+      }
+    },
+    {
+      "name": "a page already known to need scripts goes straight to the browser",
+      "prompt": "https://app.example.com/dashboard is a single-page app that renders entirely in JavaScript. Read it and tell me what it shows.",
+      "tools": ["web_fetch", "web_browse"],
+      "expect": {
+        "tool": "web_browse",
+        "args_match": {"url": "app\\.example\\.com"},
+        "not_tools": ["web_fetch"]
+      }
+    }
+  ]
+}

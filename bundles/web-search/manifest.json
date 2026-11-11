@@ -1,0 +1,53 @@
+{
+  "manifest_version": "0.3",
+  "name": "web-search",
+  "display_name": "Web search",
+  "version": "0.1.0",
+  "description": "Search the web through the Tavily search API.",
+  "author": {
+    "name": "JonasPf",
+    "url": "https://github.com/JonasPf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JonasPf/agent-plugins"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server",
+    "mcp_config": {
+      "command": "${__dirname}/server",
+      "args": [],
+      "env": {
+        "TAVILY_API_KEY": "${user_config.tavily_api_key}",
+        "TAVILY_URL": "${user_config.tavily_url}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "web_search",
+      "description": "Search the web and return result titles, URLs, and snippets. It calls a search API with the agent's own key, so there is nothing to sign in to; a search when no key is configured fails saying so, and is the operator's to fix. Follow a result with web_fetch, or web_browse if the page needs its scripts to run."
+    }
+  ],
+  "user_config": {
+    "tavily_api_key": {
+      "type": "string",
+      "title": "Tavily API key",
+      "description": "The key searches are made with. Without it every search fails saying so.",
+      "sensitive": true,
+      "required": false
+    },
+    "tavily_url": {
+      "type": "string",
+      "title": "Search API address",
+      "description": "Leave empty to use Tavily's own.",
+      "required": false
+    }
+  },
+  "_meta": {
+    "io.github.jonaspf.agent": {
+      "timeout_seconds": 60
+    }
+  }
+}

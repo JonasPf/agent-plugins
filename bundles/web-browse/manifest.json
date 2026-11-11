@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "web-browse",
+  "display_name": "Web browse",
+  "version": "0.1.0",
+  "description": "Open a URL in a real browser and return the text a person would see. Needs chromium at /usr/bin/chromium.",
+  "author": {
+    "name": "JonasPf",
+    "url": "https://github.com/JonasPf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JonasPf/agent-plugins"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server",
+    "mcp_config": {
+      "command": "${__dirname}/server",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "web_browse",
+      "description": "Open a URL in a real browser, let the page's scripts run, and return the text a person would see. Use this when web_fetch says the page is assembled by its scripts, or for a page you already know needs them — a single-page app, an infinite-scroll feed, a dashboard. It costs far more than web_fetch and takes seconds rather than milliseconds, so reach for web_fetch first unless you know the page needs a browser. A non-HTML body comes back verbatim."
+    }
+  ],
+  "compatibility": {
+    "platforms": [
+      "linux"
+    ]
+  },
+  "_meta": {
+    "io.github.jonaspf.agent": {
+      "timeout_seconds": 60,
+      "reads": [
+        "/proc",
+        "/sys",
+        "/var"
+      ]
+    }
+  }
+}

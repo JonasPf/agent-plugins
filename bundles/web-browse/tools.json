@@ -1,0 +1,18 @@
+[
+  {
+    "name": "web_browse",
+    "description": "Open a URL in a real browser, let the page's scripts run, and return the text a person would see. Use this when web_fetch says the page is assembled by its scripts, or for a page you already know needs them — a single-page app, an infinite-scroll feed, a dashboard. It costs far more than web_fetch and takes seconds rather than milliseconds, so reach for web_fetch first unless you know the page needs a browser. A non-HTML body comes back verbatim.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Absolute URL."
+        }
+      },
+      "required": [
+        "url"
+      ]
+    }
+  }
+]

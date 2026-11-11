@@ -1,0 +1,30 @@
+{
+  "manifest_version": "0.3",
+  "name": "web-fetch",
+  "display_name": "Web fetch",
+  "version": "0.1.0",
+  "description": "Fetch a URL over HTTP and return what the server sent, as text.",
+  "author": {
+    "name": "JonasPf",
+    "url": "https://github.com/JonasPf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JonasPf/agent-plugins"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server",
+    "mcp_config": {
+      "command": "${__dirname}/server",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "web_fetch",
+      "description": "Fetch a URL over HTTP and return what the server sent, as text. No browser and no scripts, so it is fast and cheap — the right first choice for an API or JSON endpoint, a raw file, a feed, a README, documentation, or any page whose text is in the HTML the server sends. A non-HTML body comes back verbatim. If the page turns out to be assembled by its scripts, the result says so and names web_browse; call that on the same URL."
+    }
+  ]
+}

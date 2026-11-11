@@ -1,0 +1,40 @@
+version: '3'
+
+# Every workflow in the repository. `task` on its own lists them.
+
+tasks:
+  default:
+    desc: List the available tasks
+    cmds: [task --list]
+    silent: true
+
+  fmt:
+    desc: Format the Go sources in place
+    cmds: [gofmt -w .]
+
+  lint:
+    desc: Report unformatted files and vet problems
+    silent: true
+    cmds:
+      - |
+        unformatted=$(gofmt -l .)
+        if [ -n "$unformatted" ]; then
+          echo "gofmt needed:"; echo "$unformatted"; exit 1
+        fi
+      - go vet ./...
+
+  test:
+    desc: Run every test, under the race detector
+    cmds: [go test -race ./...]
+
+  check:
+    desc: Everything that must pass before committing
+    cmds:
+      - task: lint
+      - go build ./...
+      - task: test
+
+  pack:
+    desc: Build one bundle for every platform it runs on, e.g. task pack BUNDLE=clock
+    requires: {vars: [BUNDLE]}
+    cmds: ['go run ./cmd/pack -bundle {{.BUNDLE}} -out dist']

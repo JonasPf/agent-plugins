@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "name": "edits rather than rewriting",
+      "prompt": "In the workspace file config.txt, change the word 'draft' to 'final'.",
+      "tools": ["edit", "read"],
+      "files": {
+        "config.txt": "mode = draft\nretries = 3\n"
+      },
+      "expect": {
+        "tool": "edit",
+        "args_match": {"old": "draft", "new": "final"},
+        "clean": true
+      }
+    },
+    {
+      "name": "asks for every match when the word repeats",
+      "prompt": "In notes.txt, replace every occurrence of 'TODO' with 'DONE'.",
+      "tools": ["edit", "read"],
+      "files": {
+        "notes.txt": "TODO ship it\nTODO write the test\n"
+      },
+      "expect": {
+        "tool": "edit",
+        "args": {"replace_all": true},
+        "clean": true
+      }
+    }
+  ]
+}

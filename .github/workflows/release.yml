@@ -1,0 +1,51 @@
+# Publishes one bundle when a tag names it: <bundle>-v<version>, for example
+# clock-v0.1.0. The version in the tag has to be the one in the bundle's
+# manifest, so a release cannot say one thing and hold another.
+#
+# Each platform's file is <bundle>-<version>-<os>-<arch>.mcpb, beside a
+# sha256sums.txt that whoever pins a bundle checks it against.
+
+name: release
+
+on:
+  push:
+    tags: ['*-v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Read the tag
+        id: tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          bundle="${tag%-v*}"
+          version="${tag##*-v}"
+          have="$(jq -r .version "bundles/$bundle/manifest.json")"
+          if [ "$have" != "$version" ]; then
+            echo "the tag says $version and bundles/$bundle/manifest.json says $have" >&2
+            exit 1
+          fi
+          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: go test ./internal/... ./cmd/... "./bundles/${{ steps.tag.outputs.bundle }}"
+
+      - name: Pack
+        run: |
+          go run ./cmd/pack -bundle "${{ steps.tag.outputs.bundle }}" -out dist
+          cd dist && sha256sum *.mcpb > sha256sums.txt && cat sha256sums.txt
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes

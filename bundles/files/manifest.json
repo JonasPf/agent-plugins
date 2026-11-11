@@ -1,0 +1,38 @@
+{
+  "manifest_version": "0.3",
+  "name": "files",
+  "display_name": "Files",
+  "version": "0.1.0",
+  "description": "Read, write and edit files in the working directory.",
+  "author": {
+    "name": "JonasPf",
+    "url": "https://github.com/JonasPf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JonasPf/agent-plugins"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server",
+    "mcp_config": {
+      "command": "${__dirname}/server",
+      "args": [],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "read",
+      "description": "Read a file from the workspace."
+    },
+    {
+      "name": "write",
+      "description": "Write a file in the workspace, creating or replacing it."
+    },
+    {
+      "name": "edit",
+      "description": "Replace an exact string in a workspace file."
+    }
+  ]
+}

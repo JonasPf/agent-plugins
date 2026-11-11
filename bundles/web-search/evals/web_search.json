@@ -1,0 +1,18 @@
+{
+  "cases": [
+    {
+      "name": "searches rather than guessing",
+      "prompt": "Search the web for what the SQLite WAL mode is, then summarise in one sentence.",
+      "tools": [
+        "web_search"
+      ],
+      "expect": {
+        "tool": "web_search",
+        "args_match": {
+          "query": "(?i)sqlite"
+        },
+        "clean": true
+      }
+    }
+  ]
+}
