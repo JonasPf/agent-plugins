@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -133,5 +134,54 @@ func TestABundleIsNotPackedForAPlatformItDoesNotRunOn(t *testing.T) {
 	path, err := Pack(root, "web-browse", "darwin", "arm64", t.TempDir())
 	if err != nil || path != "" {
 		t.Errorf("packed %q (%v), want nothing for a platform the manifest leaves out", path, err)
+	}
+}
+
+// A skill is released as a zip of its folder's files, SKILL.md at the top, so
+// a host unpacks it straight into a folder named for the skill.
+func TestASkillIsPackedAsItsFolder(t *testing.T) {
+	path, err := PackSkill(root, "writing-skills", "1.2.3", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "writing-skills-1.2.3.zip" {
+		t.Errorf("the file is %s", filepath.Base(path))
+	}
+	z, err := zip.OpenReader(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer z.Close()
+	names := map[string]bool{}
+	for _, f := range z.File {
+		names[f.Name] = true
+	}
+	if !names["SKILL.md"] || !names["references/test-cases.md"] {
+		t.Errorf("the archive holds %v, want SKILL.md at the top and the files beside it", names)
+	}
+}
+
+// A skill's folder is its name: the agent installs it under the name its
+// front matter gives, and a release is tagged by the folder.
+func TestEverySkillIsNamedForItsFolder(t *testing.T) {
+	dirs, err := os.ReadDir(filepath.Join(root, "skills"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dirs) == 0 {
+		t.Fatal("no skills")
+	}
+	for _, d := range dirs {
+		raw, err := os.ReadFile(filepath.Join(root, "skills", d.Name(), "SKILL.md"))
+		if err != nil {
+			t.Errorf("%s: %v", d.Name(), err)
+			continue
+		}
+		if !strings.HasPrefix(string(raw), "---\nname: "+d.Name()+"\n") {
+			t.Errorf("skills/%s/SKILL.md does not open with front matter naming %s", d.Name(), d.Name())
+		}
+	}
+	if _, err := PackSkill(root, "no-such-skill", "1.0.0", t.TempDir()); err == nil {
+		t.Error("packing a skill that is not there was not an error")
 	}
 }

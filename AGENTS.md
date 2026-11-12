@@ -32,3 +32,7 @@ is a signal. Fix the cause.
   `_meta["io.github.jonaspf.agent"]`: `timeout_seconds`, `reads`.
 - **A behaviour change bumps the bundle's `version`** in its `manifest.json`,
   in the same change.
+- **A skill is text a model reads, plus scripts it runs.** Its folder is its
+  name. A script is tested on real input (`testenv/`, run by `task check`,
+  which needs `python3` and ffmpeg 8). Its `evals/` are in the layout
+  `claude plugin eval` reads, and are not released with it.

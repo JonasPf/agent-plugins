@@ -29,6 +29,15 @@ jobs:
       - name: Install the browser
         run: apt-get update && apt-get install -y --no-install-recommends chromium
 
+      # What the skills' scripts run on in the agent: python3, and the ffmpeg a
+      # conversation installs there with Nix, from the same release. The two
+      # scripts are the agent's own, copied.
+      - name: Install python, Nix and ffmpeg
+        run: |
+          apt-get install -y --no-install-recommends python3 xz-utils
+          sh testenv/install-nix.sh
+          sh testenv/install-ffmpeg.sh
+
       - name: Install Task
         run: sh -c "$(curl -fsSL https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
 

@@ -27,12 +27,23 @@ tasks:
     desc: Run every test, under the race detector
     cmds: [go test -race ./...]
 
+  # The scripts a skill carries, on real video. Needs python3 and ffmpeg 8.
+  test:skills:
+    desc: Run the scripts the skills carry
+    cmds: [python3 testenv/video_edit.py]
+
   check:
     desc: Everything that must pass before committing
     cmds:
       - task: lint
       - go build ./...
       - task: test
+      - task: test:skills
+
+  pack:skill:
+    desc: Zip one skill, e.g. task pack:skill SKILL=researching VERSION=0.1.0
+    requires: {vars: [SKILL, VERSION]}
+    cmds: ['go run ./cmd/pack -skill {{.SKILL}} -version {{.VERSION}} -out dist']
 
   pack:
     desc: Build one bundle for every platform it runs on, e.g. task pack BUNDLE=clock

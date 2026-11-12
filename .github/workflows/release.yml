@@ -1,5 +1,6 @@
 # Publishes one bundle when a tag names it: <bundle>-v<version>, for example
-# clock-v0.1.0. The version in the tag has to be the one in the bundle's
+# clock-v0.1.0. A tag skill-<name>-v<version> publishes one skill instead, as
+# <name>-<version>.zip: the files of skills/<name>, SKILL.md at the top. The version in the tag has to be the one in the bundle's
 # manifest, so a release cannot say one thing and hold another.
 #
 # Each platform's file is <bundle>-<version>-<os>-<arch>.mcpb, beside a
@@ -28,22 +29,39 @@ jobs:
         id: tag
         run: |
           tag="${GITHUB_REF_NAME}"
-          bundle="${tag%-v*}"
+          name="${tag%-v*}"
           version="${tag##*-v}"
-          have="$(jq -r .version "bundles/$bundle/manifest.json")"
-          if [ "$have" != "$version" ]; then
-            echo "the tag says $version and bundles/$bundle/manifest.json says $have" >&2
-            exit 1
-          fi
-          echo "bundle=$bundle" >> "$GITHUB_OUTPUT"
+          case "$name" in
+            skill-*)
+              echo "skill=${name#skill-}" >> "$GITHUB_OUTPUT" ;;
+            *)
+              have="$(jq -r .version "bundles/$name/manifest.json")"
+              if [ "$have" != "$version" ]; then
+                echo "the tag says $version and bundles/$name/manifest.json says $have" >&2
+                exit 1
+              fi
+              echo "bundle=$name" >> "$GITHUB_OUTPUT" ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Test
+      - name: Test the bundle
+        if: steps.tag.outputs.bundle
         run: go test ./internal/... ./cmd/... "./bundles/${{ steps.tag.outputs.bundle }}"
 
-      - name: Pack
+      - name: Pack the bundle
+        if: steps.tag.outputs.bundle
         run: |
           go run ./cmd/pack -bundle "${{ steps.tag.outputs.bundle }}" -out dist
           cd dist && sha256sum *.mcpb > sha256sums.txt && cat sha256sums.txt
+
+      # A skill's scripts are tested by `task check` on the commit the tag is
+      # on; here it is only packed.
+      - name: Pack the skill
+        if: steps.tag.outputs.skill
+        run: |
+          go test ./cmd/...
+          go run ./cmd/pack -skill "${{ steps.tag.outputs.skill }}" -version "${{ steps.tag.outputs.version }}" -out dist
+          cd dist && sha256sum *.zip > sha256sums.txt && cat sha256sums.txt
 
       - name: Publish
         env:
