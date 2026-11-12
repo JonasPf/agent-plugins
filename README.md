@@ -63,9 +63,8 @@ the manifest, the server, and the tool's eval cases under `evals/`.
 Push one tag per push. GitHub starts no workflow for a push that carries more
 than three tags.
 
-Or install it on the agent's Plugins screen, from the file or its address.
-
 ## Trying a bundle in the agent
 
 Unpack a Linux `.mcpb` (it is a zip) into `plugins/<bundle>/` in the agent's
-state directory and reload its tools.
+state directory and reload its tools. Or install it on the agent's Plugins
+screen, from the file or from its address in a release.
