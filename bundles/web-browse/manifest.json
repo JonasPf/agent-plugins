@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "web-browse",
   "display_name": "Web browse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open a URL in a real browser and return the text a person would see. Needs chromium at /usr/bin/chromium.",
   "author": {
     "name": "JonasPf",

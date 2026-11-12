@@ -86,8 +86,9 @@ func readJSON(t *testing.T, path string, v any) {
 }
 
 // What a release publishes: a zip a host unpacks, holding the manifest, which
-// names the one platform its server was built for, and the server, executable.
-func TestABundleIsPackedAsAManifestAndItsServer(t *testing.T) {
+// names the one platform its server was built for, the server, executable, and
+// each tool's eval cases, so a host that can put them to a model has them.
+func TestABundleIsPackedAsAManifestItsServerAndItsEvalCases(t *testing.T) {
 	out := t.TempDir()
 	path, err := Pack(root, "clock", runtime.GOOS, runtime.GOARCH, out)
 	if err != nil {
@@ -102,8 +103,8 @@ func TestABundleIsPackedAsAManifestAndItsServer(t *testing.T) {
 	for _, f := range z.File {
 		files[f.Name] = f
 	}
-	if len(files) != 2 || files["manifest.json"] == nil || files["server"] == nil {
-		t.Fatalf("the bundle holds %v, want manifest.json and server", z.File)
+	if len(files) != 3 || files["manifest.json"] == nil || files["server"] == nil || files["evals/clock.json"] == nil {
+		t.Fatalf("the bundle holds %v, want manifest.json, server and its tool's eval cases", z.File)
 	}
 	if files["server"].Mode()&0o111 == 0 {
 		t.Error("the server is not executable")

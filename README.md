@@ -57,9 +57,14 @@ skipped where there is none; CI has it and fails without it.
 
 Change `version` in the bundle's `manifest.json`, merge, then tag the commit
 `<bundle>-v<version>` (for example `clock-v0.1.0`) and push the tag. The
-release holds one `.mcpb` per platform and a `sha256sums.txt`.
+release holds one `.mcpb` per platform and a `sha256sums.txt`. A `.mcpb` holds
+the manifest, the server, and the tool's eval cases under `evals/`.
+
+Push one tag per push. GitHub starts no workflow for a push that carries more
+than three tags.
 
 ## Trying a bundle in the agent
 
 Unpack a Linux `.mcpb` (it is a zip) into `plugins/<bundle>/` in the agent's
-state directory and reload its tools.
+state directory and reload its tools. Or install it on the agent's Plugins
+screen, from the file or from its address in a release.

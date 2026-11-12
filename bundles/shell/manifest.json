@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "shell",
   "display_name": "Shell",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run shell commands in the working directory.",
   "author": {
     "name": "JonasPf",

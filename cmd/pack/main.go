@@ -1,5 +1,6 @@
 // Command pack builds one bundle for one platform and writes it as an MCP
-// Bundle: a zip holding manifest.json and the server it names.
+// Bundle: a zip holding manifest.json, the server it names, and each tool's
+// eval cases under evals/.
 //
 //	go run ./cmd/pack -bundle clock -os linux -arch arm64 -out dist
 //
@@ -107,12 +108,27 @@ func Pack(root, bundle, goos, goarch, out string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	z := zip.NewWriter(f)
-	for _, file := range []struct {
+	type entry struct {
 		name string
 		mode os.FileMode
 		body []byte
-	}{{"manifest.json", 0o644, append(manifest, '\n')}, {"server", 0o755, binary}} {
+	}
+	entries := []entry{{"manifest.json", 0o644, append(manifest, '\n')}, {"server", 0o755, binary}}
+	// The eval cases go with the bundle: they test its descriptions against a
+	// model, and only a host can put them to one.
+	evals, err := filepath.Glob(filepath.Join(dir, "evals", "*.json"))
+	if err != nil {
+		return "", err
+	}
+	for _, e := range evals {
+		body, err := os.ReadFile(e)
+		if err != nil {
+			return "", err
+		}
+		entries = append(entries, entry{"evals/" + filepath.Base(e), 0o644, body})
+	}
+	z := zip.NewWriter(f)
+	for _, file := range entries {
 		h := &zip.FileHeader{Name: file.name, Method: zip.Deflate}
 		h.SetMode(file.mode)
 		w, err := z.CreateHeader(h)
