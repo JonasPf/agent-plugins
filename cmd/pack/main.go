@@ -4,6 +4,11 @@
 //
 //	go run ./cmd/pack -bundle clock -os linux -arch arm64 -out dist
 //
+// With -skill it packs a skill instead: a zip of the files in its folder,
+// SKILL.md at the top, named <skill>-<version>.zip.
+//
+//	go run ./cmd/pack -skill researching -version 0.1.0 -out dist
+//
 // The file is <bundle>-<version>-<os>-<arch>.mcpb. Its manifest is the one in
 // the repository with compatibility.platforms set to the platform it was built
 // for, because the server inside runs on no other.
@@ -14,6 +19,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,10 +31,21 @@ var Platforms = [][2]string{{"linux", "amd64"}, {"linux", "arm64"}, {"darwin", "
 
 func main() {
 	bundle := flag.String("bundle", "", "the bundle's directory name under bundles/")
+	skill := flag.String("skill", "", "instead of a bundle: the skill's directory name under skills/")
+	version := flag.String("version", "", "with -skill: the version the archive is named for")
 	goos := flag.String("os", "", "linux or darwin; empty builds every platform the bundle runs on")
 	goarch := flag.String("arch", "", "amd64 or arm64")
 	out := flag.String("out", "dist", "where the .mcpb files go")
 	flag.Parse()
+	if *skill != "" {
+		path, err := PackSkill(".", *skill, *version, *out)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "pack:", err)
+			os.Exit(1)
+		}
+		fmt.Println(path)
+		return
+	}
 	if *bundle == "" {
 		fmt.Fprintln(os.Stderr, "pack: -bundle is required")
 		os.Exit(2)
@@ -138,6 +155,59 @@ func Pack(root, bundle, goos, goarch, out string) (string, error) {
 		if _, err := w.Write(file.body); err != nil {
 			return "", err
 		}
+	}
+	if err := z.Close(); err != nil {
+		return "", err
+	}
+	return path, f.Close()
+}
+
+// PackSkill zips the files of skills/<name> and returns the file it wrote.
+// A skill is text and runs anywhere, so there is one archive, not one per
+// platform. Its eval cases are left out: they are for whoever changes it.
+func PackSkill(root, name, version, out string) (string, error) {
+	dir := filepath.Join(root, "skills", name)
+	if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err != nil {
+		return "", err
+	}
+	if version == "" {
+		return "", fmt.Errorf("%s: a skill is packed for a version", name)
+	}
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return "", err
+	}
+	path := filepath.Join(out, fmt.Sprintf("%s-%s.zip", name, version))
+	f, err := os.Create(path)
+	if err != nil {
+		return "", err
+	}
+	z := zip.NewWriter(f)
+	err = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, p)
+		if d.IsDir() {
+			if rel == "evals" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		body, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		h := &zip.FileHeader{Name: filepath.ToSlash(rel), Method: zip.Deflate}
+		h.SetMode(0o644)
+		w, err := z.CreateHeader(h)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(body)
+		return err
+	})
+	if err != nil {
+		return "", err
 	}
 	if err := z.Close(); err != nil {
 		return "", err

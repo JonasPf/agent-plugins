@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: join-two
+expected_outcome: |
+  edited.mp4 plays first.mov and then second.mov, and neither source is changed.

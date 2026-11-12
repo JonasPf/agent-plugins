@@ -1,6 +1,6 @@
 # agent-plugins
 
-Tools for [the agent](https://github.com/JonasPf/agent), packaged as
+Tools and skills for [the agent](https://github.com/JonasPf/agent). The tools are packaged as
 [MCP Bundles](https://github.com/modelcontextprotocol/mcpb). Each bundle is one
 small MCP server in Go, built as a single program with nothing to install
 beside it, so it also runs in any other host that takes MCP bundles or a local
@@ -17,6 +17,16 @@ MCP server.
 
 A bundle is the unit of permission: tools that need the same things live
 together, and a tool that needs more has a bundle of its own.
+
+The skills are [Agent Skills](https://agentskills.io) folders: a `SKILL.md`
+and the files beside it.
+
+| Skill | For |
+|---|---|
+| `researching` | answering from the web with sources |
+| `keeping-records` | keeping what the operator asks to remember, as files |
+| `writing-skills` | drafting a new skill for the operator to install |
+| `video-edit` | cutting and joining videos; needs `ffmpeg` and `python3` |
 
 ## What a server may assume
 
@@ -40,7 +50,9 @@ bundles/<bundle>/evals/<tool>.json eval cases for each tool's description
 internal/serve                     turns the two files and the code into an MCP server
 internal/servetest                 calls a bundle over the protocol, for tests
 internal/workspace, internal/web   what the tools share
-cmd/pack                           builds a .mcpb for one platform
+cmd/pack                           builds a .mcpb for one platform, or zips a skill
+skills/<name>/SKILL.md             a skill, with its scripts, references and eval cases
+testenv/                           tests of the skills' scripts, and what installs their ffmpeg
 ```
 
 ## Working on it
@@ -62,6 +74,15 @@ the manifest, the server, and the tool's eval cases under `evals/`.
 
 Push one tag per push. GitHub starts no workflow for a push that carries more
 than three tags.
+
+## Releasing a skill
+
+Tag the commit `skill-<name>-v<version>` (for example
+`skill-researching-v0.1.0`) and push the tag. The release holds
+`<name>-<version>.zip`, the skill's files with `SKILL.md` at the top and its
+eval cases left out, and a `sha256sums.txt`. The version is the tag's; nothing
+in the skill repeats it. The agent installs the zip from its Skills screen, or
+ships it by naming it in its `plugins.lock`.
 
 ## Trying a bundle in the agent
 
