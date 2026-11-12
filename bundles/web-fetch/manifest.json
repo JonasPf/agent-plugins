@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "web-fetch",
   "display_name": "Web fetch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fetch a URL over HTTP and return what the server sent, as text.",
   "author": {
     "name": "JonasPf",

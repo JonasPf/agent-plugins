@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "clock",
   "display_name": "Clock",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The current date and time.",
   "author": {
     "name": "JonasPf",
