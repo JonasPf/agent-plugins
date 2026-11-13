@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "voice-over",
+  "display_name": "Voice-over",
+  "version": "0.0.1",
+  "description": "Puts a synthesized voice-over on a video. Not complete yet: see CONTRACT.md for what it will hold.",
+  "author": {
+    "name": "JonasPf",
+    "url": "https://github.com/JonasPf"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JonasPf/agent-plugins"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server",
+    "mcp_config": {
+      "command": "${__dirname}/server",
+      "args": [],
+      "env": {
+        "VOICEOVER_FFMPEG": "${user_config.ffmpeg_path}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "voiceover_frames",
+      "description": "Look at a video: writes the frame at each time you name as a JPEG and returns the paths, with the video's length, size, and whether it has sound. Use it to describe a video that has no narration, and to check a word of a transcript against what is on screen. It reads the video and changes nothing in it. To see a frame, open its path with whatever reads an image for you."
+    }
+  ],
+  "user_config": {
+    "ffmpeg_path": {
+      "type": "string",
+      "title": "ffmpeg",
+      "description": "The full path of the ffmpeg to use. Leave empty to use the one in the bundle, or else the one on PATH.",
+      "required": false
+    }
+  },
+  "_meta": {
+    "io.github.jonaspf.agent": {
+      "timeout_seconds": 1800
+    }
+  }
+}

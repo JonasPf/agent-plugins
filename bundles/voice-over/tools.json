@@ -1,0 +1,21 @@
+[
+  {
+    "name": "voiceover_frames",
+    "description": "Look at a video: writes the frame at each time you name as a JPEG and returns the paths, with the video's length, size, and whether it has sound. Use it to describe a video that has no narration, and to check a word of a transcript against what is on screen. It reads the video and changes nothing in it. To see a frame, open its path with whatever reads an image for you.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "video": {
+          "type": "string",
+          "description": "The video's path, relative to the working directory or absolute."
+        },
+        "at": {
+          "type": "array",
+          "items": {"type": "number"},
+          "description": "The times to look at, in seconds from the start. At most 20 in one call. Leave it out to learn only the video's length, size, and whether it has sound."
+        }
+      },
+      "required": ["video"]
+    }
+  }
+]
