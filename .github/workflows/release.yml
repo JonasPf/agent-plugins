@@ -16,7 +16,40 @@ permissions:
   contents: write
 
 jobs:
+  # A bundle's tests run where check.yml runs them: Debian, the chromium the
+  # agent's image has, and the ffmpeg a conversation installs. On the bare
+  # runner voice-over's tests have no ffmpeg, and its page's browser test
+  # would say it could not run rather than run.
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.25-bookworm
+      options: --init
+    env:
+      PLUGINS_TEST_FULL: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the browser, Nix and ffmpeg
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends chromium xz-utils jq
+          sh testenv/install-nix.sh
+          sh testenv/install-ffmpeg.sh
+
+      # The checkout is owned by a different uid than the one running git here.
+      - name: Trust the checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Test the bundle
+        run: |
+          name="${GITHUB_REF_NAME%-v*}"
+          case "$name" in
+            skill-*) go test ./cmd/... ;;
+            *) go test ./internal/... ./cmd/... "./bundles/$name" ;;
+          esac
+
   release:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,10 +77,6 @@ jobs:
           esac
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Test the bundle
-        if: steps.tag.outputs.bundle
-        run: go test ./internal/... ./cmd/... "./bundles/${{ steps.tag.outputs.bundle }}"
-
       - name: Pack the bundle
         if: steps.tag.outputs.bundle
         run: |
@@ -59,7 +88,6 @@ jobs:
       - name: Pack the skill
         if: steps.tag.outputs.skill
         run: |
-          go test ./cmd/...
           go run ./cmd/pack -skill "${{ steps.tag.outputs.skill }}" -version "${{ steps.tag.outputs.version }}" -out dist
           cd dist && sha256sum *.zip > sha256sums.txt && cat sha256sums.txt
 
