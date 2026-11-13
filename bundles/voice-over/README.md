@@ -21,7 +21,7 @@ a zip. A host that installs MCP Bundles, such as Claude Desktop, takes the file 
 for the settings below. For any other host, unpack it:
 
 ```sh
-version=0.0.7 platform=darwin-arm64
+version=0.0.8 platform=darwin-arm64
 mkdir -p ~/.local/share/voice-over && cd ~/.local/share/voice-over
 curl -fsSLO "https://github.com/JonasPf/agent-plugins/releases/download/voice-over-v$version/voice-over-$version-$platform.mcpb"
 curl -fsSL "https://github.com/JonasPf/agent-plugins/releases/download/voice-over-v$version/sha256sums.txt" | grep "$platform" | shasum -a 256 -c
