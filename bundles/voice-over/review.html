@@ -32,6 +32,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .go:disabled { opacity: .6; cursor: default; }
 .lede { margin: 0; color: var(--muted); max-width: 70ch; }
 .done { flex: 1 0 100%; margin: 0; padding: 6px 10px; background: var(--tint); font-weight: 600; }
+.back { flex: 1 0 100%; display: flex; gap: 8px; align-items: start; }
+.back pre { flex: 1 1 auto; min-width: 0; margin: 0; padding: 6px 8px; background: var(--sunk); border: 1px solid var(--line);
+  white-space: pre-wrap; font: 400 13px/1.4 var(--data); max-height: 30vh; overflow: auto; }
 .note { position: sticky; bottom: 0; z-index: 8; margin: 0 -12px; padding: 8px 12px; background: var(--warn-tint);
   border-top: 2px solid var(--warn); font-size: 15px; }
 .controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: end; }
@@ -111,6 +114,10 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
     </div>
     <p class="done" id="held" role="status">Loading the video's screenshots and speech…</p>
     <p class="done" id="done" role="status" hidden></p>
+    <div class="back" id="back" hidden>
+      <pre id="pasteBack"></pre>
+      <button class="go" type="button" id="copy">Copy</button>
+    </div>
   </div>
   <p class="lede">Drag a line by its handle to move it, or tap the handle to hear it. Each line is as tall as its speech; a dashed one is not spoken yet, so its length is a guess. One still speaking when the next starts, or when the video ends, is cut off there. Split and Join work where the cursor is. Pick a voice to hear it. Tap a screenshot to enlarge it.</p>
   <div class="controls">
@@ -135,11 +142,23 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
 (function () {
   var el = function (id) { return document.getElementById(id); };
 
-  // The host: an MCP App speaks to whatever shows it in JSON-RPC messages
-  // (io.modelcontextprotocol/ui). It is told which video it is for, and asks
-  // the bundle's server, through the host, for everything it shows and for
-  // Send. Nothing else leaves the page.
-  var host = (function () {
+  // A tool's answer as text, or its failure as an error.
+  function answered(name) {
+    return function (r) {
+      var text = ((r && r.content) || []).filter(function (c) { return c.type === 'text'; })
+        .map(function (c) { return c.text; }).join('\n');
+      if (r && r.isError) throw new Error(text || name + ' failed');
+      return text;
+    };
+  }
+
+  // The host, one of two. An MCP App speaks to whatever shows it in JSON-RPC
+  // messages (io.modelcontextprotocol/ui): it is told which video it is for,
+  // and asks the bundle's server, through the host, for everything it shows
+  // and for Send. Opened from a link instead, the page was served by the
+  // bundle's own server on this machine, and asks it directly. Nothing else
+  // leaves the page either way.
+  function appsHost() {
     var next = 1, waiting = {}, onInput = null;
     window.addEventListener('message', function (e) {
       var m = e.data;
@@ -173,24 +192,54 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
       },
       // call calls one of the server's tools, and resolves with its text.
       call: function (name, args) {
-        return request('tools/call', { name: name, arguments: args }).then(function (r) {
-          var text = ((r && r.content) || []).filter(function (c) { return c.type === 'text'; })
-            .map(function (c) { return c.text; }).join('\n');
-          if (r && r.isError) throw new Error(text || name + ' failed');
-          return text;
-        });
+        return request('tools/call', { name: name, arguments: args }).then(answered(name));
       },
       // message puts a message in the conversation, as the operator's.
       message: function (text) {
         return request('ui/message', { role: 'user', content: { type: 'text', text: text } });
       },
     };
-  })();
+  }
+  function linkHost(link) {
+    function post(path, body) {
+      return fetch(path + '?t=' + encodeURIComponent(link.token), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      }).then(function (r) {
+        if (!r.ok) return r.text().then(function (t) { throw new Error(t.trim() || 'the server said ' + r.status); });
+        return r.json();
+      }, function () {
+        throw new Error('the voice-over server that showed this page has stopped: ask the agent to open the review page again');
+      });
+    }
+    return {
+      start: function () { return Promise.resolve({ video: link.video }); },
+      call: function (name, args) { return post('/call', { name: name, arguments: args }).then(answered(name)); },
+      // A page in a browser cannot reach the conversation: the message is the
+      // operator's to paste there, and the server stops.
+      message: function (text) { return post('/sent', { text: text }); },
+      pasteBack: true,
+    };
+  }
+  var host = window.REVIEW_LINK ? linkHost(window.REVIEW_LINK) : appsHost();
 
   function shown(id, text) {
     el(id).textContent = text;
     el(id).hidden = !text;
   }
+
+  el('copy').addEventListener('click', function () {
+    var text = el('pasteBack').textContent, b = this;
+    function copied() { b.textContent = 'Copied'; }
+    function select() {
+      var range = document.createRange();
+      range.selectNodeContents(el('pasteBack'));
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+      b.textContent = 'Selected: copy it';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(copied, select);
+    else select();
+  });
 
   host.start().then(function (args) {
     return host.call('voiceover_review_data', { video: args.video }).then(function (text) {
@@ -293,12 +342,20 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
     el('send').disabled = true;
     el('send').textContent = 'Sending…';
     shown('done', '');
+    var said = '';
     host.call('voiceover_save_review', body).then(function (text) {
+      said = text;
       return host.message(text);
     }).then(function () {
       sent = true;
       el('send').textContent = 'Sent';
-      shown('done', 'Sent. The agent takes it from here, and this page comes back once the lines are spoken.');
+      if (host.pasteBack) {
+        shown('done', 'Sent. Paste this into the agent\'s chat, so it carries on:');
+        el('pasteBack').textContent = said;
+        el('back').hidden = false;
+      } else {
+        shown('done', 'Sent. The agent takes it from here, and this page comes back once the lines are spoken.');
+      }
     }).catch(function (e) {
       el('send').textContent = 'Send';
       shown('done', 'Not sent: ' + e.message);

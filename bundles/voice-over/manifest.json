@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "voice-over",
   "display_name": "Voice-over",
-  "version": "0.0.4",
-  "description": "Puts a synthesized voice-over on a video. Not complete yet: it can look at a video, transcribe it, place a script, speak it onto the video, and show the operator a page to review it on, in a host that shows MCP Apps; see CONTRACT.md for what it will hold.",
+  "version": "0.0.5",
+  "description": "Puts a synthesized voice-over on a video. Not complete yet: it can look at a video, transcribe it, place a script, speak it onto the video, and show the operator a page to review it on, in a host that shows MCP Apps or as a link on this machine; see CONTRACT.md for what it will hold.",
   "author": {
     "name": "JonasPf",
     "url": "https://github.com/JonasPf"
@@ -21,7 +21,8 @@
       "env": {
         "VOICEOVER_FFMPEG": "${user_config.ffmpeg_path}",
         "VOICEOVER_OPENROUTER_KEY": "${user_config.openrouter_api_key}",
-        "VOICEOVER_OPENROUTER_URL": "${user_config.openrouter_url}"
+        "VOICEOVER_OPENROUTER_URL": "${user_config.openrouter_url}",
+        "VOICEOVER_REVIEW": "${user_config.review}"
       }
     }
   },
@@ -73,6 +74,12 @@
       "type": "string",
       "title": "ffmpeg",
       "description": "The full path of the ffmpeg to use. Leave empty to use the one in the bundle, or else the one on PATH.",
+      "required": false
+    },
+    "review": {
+      "type": "string",
+      "title": "Review page",
+      "description": "How the review page is shown: auto (as a page in the conversation where the host shows pages, else as a link on this machine), apps, or browser. Leave empty for auto.",
       "required": false
     }
   },

@@ -54,9 +54,10 @@ const (
 // hour of it at the best would leave no room for the screenshots.
 var speechRates = [][2]int{{48, 24000}, {32, 24000}, {24, 24000}, {16, 16000}, {8, 8000}}
 
-// review is voiceover_review: it opens the page, and tells the model its turn
-// ends here.
-func review(_ context.Context, raw json.RawMessage) (string, error) {
+// review is voiceover_review: it opens the page, as an App where the host
+// shows pages and as a link to this machine where it does not, and tells the
+// model its turn ends here.
+func review(ctx context.Context, raw json.RawMessage) (string, error) {
 	var args struct {
 		Video string `json:"video"`
 	}
@@ -71,10 +72,25 @@ func review(_ context.Context, raw json.RawMessage) (string, error) {
 	if _, err := os.Stat(filepath.Join(p.dir, "script.json")); errors.Is(err, os.ErrNotExist) {
 		scripted = " There is no script yet: the operator can write the script on the page, or paste it there."
 	}
-	return fmt.Sprintf("The review page for %s is open for the operator. On it they hear each line at its real length, "+
-		"move and change lines, and pick the voice and the language.%s Send saves the script and tells you what to do next. "+
-		"End your turn now: say in one sentence that the page is ready, and wait for the message Send brings.\n",
-		shown(p.video), scripted), nil
+	asLink, err := showsAsLink(ctx)
+	if err != nil {
+		return "", err
+	}
+	if !asLink {
+		return fmt.Sprintf("The review page for %s is open for the operator. On it they hear each line at its real length, "+
+			"move and change lines, and pick the voice and the language.%s Send saves the script and tells you what to do next. "+
+			"End your turn now: say in one sentence that the page is ready, and wait for the message Send brings.\n",
+			shown(p.video), scripted), nil
+	}
+	url, err := openReviewLink(args.Video)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("The review page for %s is at %s\nGive the operator that link. It opens on this machine, "+
+		"for as long as this tool's server runs, and stops after Send or two hours left alone. On it they hear each line "+
+		"at its real length, move and change lines, and pick the voice and the language.%s Send saves the script and gives "+
+		"them a message to paste back here, saying what to do next. End your turn now: give the link, and wait.\n",
+		shown(p.video), url, scripted), nil
 }
 
 // pageLine is a line as the page shows it: with the length and the sound of

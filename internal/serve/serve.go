@@ -40,8 +40,35 @@ type Page struct {
 	HTML string
 }
 
-// AppMIME is what a page is served as.
-const AppMIME = "text/html;profile=mcp-app"
+// AppMIME is what a page is served as, and appExtension the capability a
+// host declares when it shows pages.
+const (
+	AppMIME      = "text/html;profile=mcp-app"
+	appExtension = "io.modelcontextprotocol/ui"
+)
+
+type sessionKey struct{}
+
+// HostShowsApps reports whether the host that made this call said, when it
+// connected, that it shows pages of the kind a bundle serves (MCP Apps).
+func HostShowsApps(ctx context.Context) bool {
+	ss, _ := ctx.Value(sessionKey{}).(*mcp.ServerSession)
+	if ss == nil {
+		return false
+	}
+	ip := ss.InitializeParams()
+	if ip == nil || ip.Capabilities == nil {
+		return false
+	}
+	ui, _ := ip.Capabilities.Extensions[appExtension].(map[string]any)
+	types, _ := ui["mimeTypes"].([]any)
+	for _, m := range types {
+		if m == AppMIME {
+			return true
+		}
+	}
+	return false
+}
 
 // New builds the server for a bundle from its manifest.json, its tools.json,
 // and the code for each tool. A tool described and not written, or written and
@@ -100,7 +127,7 @@ func New(manifest, tools []byte, runs map[string]Run, pages ...Page) (*mcp.Serve
 		}
 		s.AddTool(&mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, Meta: d.Meta},
 			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-				text, err := run(ctx, req.Params.Arguments)
+				text, err := run(context.WithValue(ctx, sessionKey{}, req.Session), req.Params.Arguments)
 				if err != nil {
 					return &mcp.CallToolResult{IsError: true,
 						Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, nil

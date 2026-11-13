@@ -125,3 +125,25 @@ func TestPagesAndToolsMustAgree(t *testing.T) {
 		t.Error("a page no tool names was accepted")
 	}
 }
+
+// "A tool can ask whether its host shows MCP Apps: whether the client said so
+// when it connected, for the page's MIME type."
+func TestAToolKnowsWhetherItsHostShowsApps(t *testing.T) {
+	var shows []bool
+	runs := map[string]serve.Run{"show": func(ctx context.Context, _ json.RawMessage) (string, error) {
+		shows = append(shows, serve.HostShowsApps(ctx))
+		return "ok", nil
+	}, "save": echo}
+	page := serve.Page{URI: "ui://demo/page", HTML: "<p>page</p>"}
+	apps := &mcp.ClientCapabilities{}
+	apps.AddExtension("io.modelcontextprotocol/ui", map[string]any{"mimeTypes": []string{serve.AppMIME}})
+	other := &mcp.ClientCapabilities{}
+	other.AddExtension("io.modelcontextprotocol/ui", map[string]any{"mimeTypes": []string{"text/plain"}})
+	for _, caps := range []*mcp.ClientCapabilities{apps, nil, other} {
+		cs := servetest.ClientWith(t, caps, []byte(manifest), []byte(withPage), runs, page)
+		servetest.Call(t, cs, "show", `{}`)
+	}
+	if len(shows) != 3 || !shows[0] || shows[1] || shows[2] {
+		t.Errorf("shows Apps = %v, want true for the host that said so, false for one that did not, and for one that takes no pages", shows)
+	}
+}
