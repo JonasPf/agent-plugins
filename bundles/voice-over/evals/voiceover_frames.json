@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "name": "looks at the frames of a video with no narration",
+      "prompt": "demo.mov is a screen recording with no sound. Tell me what is on screen at 5, 20 and 40 seconds.",
+      "tools": [
+        "voiceover_frames"
+      ],
+      "expect": {
+        "tool": "voiceover_frames",
+        "args_match": {
+          "video": "^demo\\.mov$"
+        },
+        "clean": true
+      }
+    },
+    {
+      "name": "asks how long a video is without naming times",
+      "prompt": "How long is intro.mp4, and does it have a sound track?",
+      "tools": [
+        "voiceover_frames"
+      ],
+      "expect": {
+        "tool": "voiceover_frames",
+        "args_match": {
+          "video": "^intro\\.mp4$"
+        },
+        "clean": true
+      }
+    }
+  ]
+}
