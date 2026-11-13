@@ -60,7 +60,7 @@ const talk = "[2.00–4.00] okay so this is the opening\n" +
 // table shows what the narrator says at each start."
 func TestScriptPlacesEachLineWhereItsWordsAre(t *testing.T) {
 	dir, _ := narrated(t, "100", talk)
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[
 		{"starts_with":"okay so this is","text":"This is the opening."},
@@ -95,7 +95,7 @@ func TestScriptPlacesEachLineWhereItsWordsAre(t *testing.T) {
 // evenly across its time."
 func TestScriptFindsAStartInsideAPhrase(t *testing.T) {
 	dir, _ := narrated(t, "20", "[0.00–8.00] one two three four five six seven eight\n")
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[
 		{"starts_with":"one two three","text":"One two three."},
@@ -112,7 +112,7 @@ func TestScriptFindsAStartInsideAPhrase(t *testing.T) {
 // probably cut off is marked TIGHT."
 func TestScriptMarksANearMatchAndATightLine(t *testing.T) {
 	_, _ = narrated(t, "40", "[1.00–3.00] so we use block demand for this\n[4.00–6.00] then we move on\n")
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[
 		{"starts_with":"so we use blockdaemon","text":"We use Blockdaemon for this, and a great many other things besides, all day long."},
@@ -152,7 +152,7 @@ func TestScriptPlacesLinesByTimeWithoutATranscript(t *testing.T) {
 	bands(t, "clip.mov", false, "red:30")
 	g := withGateway(t)
 	g.on("/models", answer(200, offeredVoices))
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[{"at":1.5,"text":"First."},{"at":12,"text":"Second."}]}`)
 	if res.Error {
@@ -171,7 +171,7 @@ func TestScriptPlacesLinesByTimeWithoutATranscript(t *testing.T) {
 // every model the gateway lists."
 func TestScriptSaysWhatSpeakingWillCostAndWhichVoicesThereAre(t *testing.T) {
 	_, _ = narrated(t, "100", talk)
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[
 		{"starts_with":"okay so this is","text":"This is the opening."},
@@ -194,7 +194,7 @@ func TestScriptSaysWhatSpeakingWillCostAndWhichVoicesThereAre(t *testing.T) {
 // left as it was."
 func TestScriptRefusesALineItCannotPlace(t *testing.T) {
 	dir, _ := narrated(t, "100", talk)
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 	before := `[{"at":1,"text":"kept"}]`
 	path := filepath.Join(dir, "clip.voiceover", "script.json")
 
@@ -231,7 +231,7 @@ func TestScriptWithWordsButNoTranscriptSaysToTranscribe(t *testing.T) {
 	bands(t, "clip.mov", true, "red:10")
 	g := withGateway(t)
 	g.on("/models", answer(200, offeredVoices))
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[{"starts_with":"okay so this","text":"x"}]}`)
 	if !res.Error || !strings.Contains(res.Text, "voiceover_transcribe") {
@@ -247,7 +247,7 @@ func TestScriptClearsAnOwedTranslation(t *testing.T) {
 	if err := os.WriteFile(proj, []byte(`{"voice":"alice","model":"elevenlabs/eleven-flash-v2.5","translate_to":"de"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_script", `{"video":"clip.mov","lines":[{"starts_with":"okay so this is","text":"Das ist der Anfang."}]}`)
 	if res.Error {

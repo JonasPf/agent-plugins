@@ -39,7 +39,7 @@ func TestTranscribeWritesTheTranscriptBesideTheVideo(t *testing.T) {
 	g.on("/audio/transcriptions", answer(200, `{"text":"So in this case we use Blockdaemon.",
 		"segments":[{"start":0,"end":2.5,"text":" So in this case"},{"start":2.5,"end":4.1,"text":" we use Blockdaemon."}],
 		"usage":{"cost":0.0003}}`))
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov","language":"en","terms":"Blockdaemon"}`)
 	if res.Error {
@@ -76,7 +76,7 @@ func TestTranscribeOfAVideoWithNoSoundSaysSo(t *testing.T) {
 	servetest.InDir(t, dir)
 	bands(t, "silent.mp4", false, "red:3")
 	t.Setenv(keyName, "")
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"silent.mp4"}`)
 	if res.Error || !strings.Contains(res.Text, "no sound") || !strings.Contains(res.Text, `"at"`) {
@@ -98,7 +98,7 @@ func TestTranscribeStopsAtAnHourAndSendsALongRecordingInParts(t *testing.T) {
 	g := withGateway(t)
 	g.on("/models", answer(200, `{"data":[{"id":"heygen/heygen-voice-1-turbo","name":"HeyGen: Voice 1 Turbo",
 		"architecture":{"output_modalities":["speech"]},"supported_voices":["gareth"],"pricing":{"prompt":"0.000004"}}]}`))
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"talk.mov"}`)
 	if !res.Error || !strings.Contains(res.Text, "long: true") || !strings.Contains(res.Text, "gareth") || !strings.Contains(res.Text, "$") {
@@ -137,7 +137,7 @@ func TestTranscribeRefusesOneBlockForAWholeRecording(t *testing.T) {
 	bands(t, "talk.mov", true, "red:70")
 	g := withGateway(t)
 	g.on("/audio/transcriptions", answer(200, `{"text":"everything","segments":[{"start":0,"end":70,"text":"everything"}]}`))
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"talk.mov"}`)
 	if !res.Error || !strings.Contains(res.Text, "one block") {
@@ -154,7 +154,7 @@ func TestTranscribeWithoutAKeySaysWhereToSetOne(t *testing.T) {
 	servetest.InDir(t, dir)
 	bands(t, "clip.mov", true, "red:2")
 	t.Setenv(keyName, "")
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
 	if !res.Error || !strings.Contains(res.Text, "OpenRouter API key") {

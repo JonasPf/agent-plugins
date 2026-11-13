@@ -97,5 +97,65 @@
       },
       "required": ["video"]
     }
+  },
+  {
+    "name": "voiceover_review",
+    "description": "Show the operator the review page for a video's voice-over, where they hear every line at its real length, drag it to a new moment, change its words, split and join lines, and pick the voice and the language, hearing a sample of each. It works before anything is spoken, when the lengths are a guess, and with no script at all, when the operator writes or pastes it there. Their Send saves the script and brings you a message saying what to do next. Call it after voiceover_render, and after voiceover_script when the operator asked to check the script before it is spoken; then end your turn. Do not open it on a scheduled run, or when the operator said to go ahead without asking.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "video": {
+          "type": "string",
+          "description": "The video's path, relative to the working directory or absolute."
+        }
+      },
+      "required": ["video"]
+    },
+    "_meta": {"ui": {"resourceUri": "ui://voice-over/review"}}
+  },
+  {
+    "name": "voiceover_review_data",
+    "description": "What the review page shows: the video's screenshots, the lines with their speech, and the voices with their samples and prices. Only the page calls it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "video": {
+          "type": "string",
+          "description": "The video's path, relative to the working directory or absolute."
+        }
+      },
+      "required": ["video"]
+    },
+    "_meta": {"ui": {"visibility": ["app"]}}
+  },
+  {
+    "name": "voiceover_save_review",
+    "description": "What the review page's Send calls: it writes the script and the voice, and answers with what the conversation is told. Only the page calls it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "video": {
+          "type": "string",
+          "description": "The video's path, relative to the working directory or absolute."
+        },
+        "voice": {"type": "string", "description": "The voice picked on the page."},
+        "model": {"type": "string", "description": "The model the voice is of."},
+        "language": {"type": "string", "description": "A language code to translate the lines into first, or empty to keep them as written."},
+        "lines": {
+          "type": "array",
+          "description": "Every line, in the order it starts.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "at": {"type": "number", "description": "Seconds from the start."},
+              "text": {"type": "string", "description": "What is to be said."}
+            },
+            "required": ["at", "text"]
+          }
+        }
+      },
+      "required": ["video", "voice", "model", "lines"]
+    },
+    "_meta": {"ui": {"visibility": ["app"]}}
   }
 ]

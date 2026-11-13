@@ -20,9 +20,9 @@ type Result struct {
 
 // Client connects a client to the bundle's server, which lives as long as the
 // test does.
-func Client(t *testing.T, manifest, tools []byte, runs map[string]serve.Run) *mcp.ClientSession {
+func Client(t *testing.T, manifest, tools []byte, runs map[string]serve.Run, pages ...serve.Page) *mcp.ClientSession {
 	t.Helper()
-	s, err := serve.New(manifest, tools, runs)
+	s, err := serve.New(manifest, tools, runs, pages...)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "voice-over",
   "display_name": "Voice-over",
-  "version": "0.0.3",
-  "description": "Puts a synthesized voice-over on a video. Not complete yet: it can look at a video, transcribe it, place a script and speak it onto the video so far; see CONTRACT.md for what it will hold.",
+  "version": "0.0.4",
+  "description": "Puts a synthesized voice-over on a video. Not complete yet: it can look at a video, transcribe it, place a script, speak it onto the video, and show the operator a page to review it on, in a host that shows MCP Apps; see CONTRACT.md for what it will hold.",
   "author": {
     "name": "JonasPf",
     "url": "https://github.com/JonasPf"
@@ -41,6 +41,18 @@
     {
       "name": "voiceover_render",
       "description": "Speak the script and put it on the video: speaks every line of script.json that has no speech yet, in one voice for the whole video, lays each line at its start, and writes <name>.voiceover.mp4 beside the video, its picture untouched and the voice-over as its sound. One call, however many lines; a line whose words and voice did not change is not spoken or paid for again. A line still speaking when the next starts, or when the video ends, is cut there and reported: never move or reword it to make it fit, which is the operator's to decide. The result says what it cost and which lines were cut; pass on that nobody has listened to it."
+    },
+    {
+      "name": "voiceover_review",
+      "description": "Show the operator the review page for a video's voice-over, where they hear every line at its real length, drag it to a new moment, change its words, split and join lines, and pick the voice and the language, hearing a sample of each. It works before anything is spoken, when the lengths are a guess, and with no script at all, when the operator writes or pastes it there. Their Send saves the script and brings you a message saying what to do next. Call it after voiceover_render, and after voiceover_script when the operator asked to check the script before it is spoken; then end your turn. Do not open it on a scheduled run, or when the operator said to go ahead without asking."
+    },
+    {
+      "name": "voiceover_review_data",
+      "description": "What the review page shows: the video's screenshots, the lines with their speech, and the voices with their samples and prices. Only the page calls it."
+    },
+    {
+      "name": "voiceover_save_review",
+      "description": "What the review page's Send calls: it writes the script and the voice, and answers with what the conversation is told. Only the page calls it."
     }
   ],
   "user_config": {
