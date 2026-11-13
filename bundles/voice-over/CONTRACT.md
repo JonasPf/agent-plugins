@@ -74,6 +74,9 @@ table is right. Speaks nothing and costs nothing.
   before the one ahead of it; a line after the video's end; an empty line; a line over 4,500
   characters.
 - Clears an owed translation (see `voiceover_save_review`).
+- The voices are those of the two models offered, HeyGen Turbo and ElevenLabs Flash (31 voices
+  whose names do not overlap, so a name chooses its model); the gateway lists dozens more. The
+  last line's gap is to the video's end, since the end cuts it as the next line would. **Built.**
 
 Its description carries the rules for writing the lines, because a tool description is the one
 text every host shows the model:
@@ -107,7 +110,7 @@ Speaks every line that has no speech yet, puts each at its moment, and writes
 - Returns: the output path, the backend, model and voice, the cost, how many lines were spoken
   now and how many kept, and every line cut short with by how much. And one sentence the model
   must pass on: the starts come from the transcript or the page, and nobody has listened to it.
-- Refuses while a translation is owed, saying what to do.
+- Refuses while a translation is owed, saying what to do. **Built.**
 
 ### `voiceover_review {video}`
 

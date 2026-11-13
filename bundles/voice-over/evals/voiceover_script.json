@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "name": "finds each start by the narrator's words, copied from the transcript",
+      "prompt": "I transcribed demo.mov with voiceover_transcribe. segments.txt says:\n[0.00–3.10] um so okay this is the the dashboard\n[3.10–6.00] and here you can see the alerts we raise\n[6.00–9.40] uh each one links to the transaction\nWrite the voice-over script for it, one line per sentence.",
+      "tools": [
+        "voiceover_script"
+      ],
+      "expect": {
+        "tool": "voiceover_script",
+        "args_match": {
+          "video": "^demo\\.mov$",
+          "lines": "starts_with:(um )?(so )?(okay )?this is the.*starts_with:and here you can.*starts_with:(uh )?each one links"
+        }
+      }
+    },
+    {
+      "name": "places the lines of a video with no narration by time",
+      "prompt": "promo.mp4 has no narration. voiceover_frames showed the logo at 0 s, the dashboard at 6 s and the pricing page at 14 s. Write a three-line voice-over script that introduces each as it appears.",
+      "tools": [
+        "voiceover_script"
+      ],
+      "expect": {
+        "tool": "voiceover_script",
+        "args_match": {
+          "video": "^promo\\.mp4$",
+          "lines": "at:0\\b.*at:6\\b.*at:14\\b"
+        }
+      }
+    }
+  ]
+}

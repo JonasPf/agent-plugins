@@ -14,6 +14,11 @@ var manifest []byte
 //go:embed tools.json
 var tools []byte
 
-var runs = map[string]serve.Run{"voiceover_frames": frames, "voiceover_transcribe": transcribe}
+var runs = map[string]serve.Run{
+	"voiceover_frames":     frames,
+	"voiceover_transcribe": transcribe,
+	"voiceover_script":     script,
+	"voiceover_render":     renderVideo,
+}
 
 func main() { serve.Main(manifest, tools, runs) }

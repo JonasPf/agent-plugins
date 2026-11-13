@@ -1,0 +1,31 @@
+{
+  "cases": [
+    {
+      "name": "speaks the script in the voice asked for",
+      "prompt": "The script for demo.mov is placed and right. Make the voice-over video, in alice's voice.",
+      "tools": [
+        "voiceover_render"
+      ],
+      "expect": {
+        "tool": "voiceover_render",
+        "args_match": {
+          "video": "^demo\\.mov$",
+          "voice": "^alice$"
+        }
+      }
+    },
+    {
+      "name": "renders when the operator says the script is good",
+      "prompt": "The voice-over script for intro.mov looks good. Go ahead and make the video.",
+      "tools": [
+        "voiceover_render"
+      ],
+      "expect": {
+        "tool": "voiceover_render",
+        "args_match": {
+          "video": "^intro\\.mov$"
+        }
+      }
+    }
+  ]
+}
