@@ -171,9 +171,11 @@ func TestReviewDataHoldsWhatThePageShows(t *testing.T) {
 	if first.Text != "The first line." || first.At != 1 || first.Length == nil || *first.Length < 1.9 || *first.Length > 2.1 {
 		t.Errorf("the spoken line = %+v, want its speech's length without the silence at its ends", first)
 	}
-	mp3, err := base64.StdEncoding.DecodeString(first.Audio)
-	if err != nil || len(mp3) < 100 || mp3[0] != 0xFF || mp3[1]&0xE0 != 0xE0 {
-		t.Errorf("the spoken line's audio is not MP3 the page can play")
+	// AAC in an MP4, which ffmpeg encodes with no library of its own and any
+	// browser plays.
+	m4a, err := base64.StdEncoding.DecodeString(first.Audio)
+	if err != nil || len(m4a) < 100 || string(m4a[4:8]) != "ftyp" {
+		t.Errorf("the spoken line's audio is not an MP4 the page can play")
 	}
 	if second.Length != nil || second.Audio != "" {
 		t.Errorf("a line not spoken has a length or speech: %+v", second)
