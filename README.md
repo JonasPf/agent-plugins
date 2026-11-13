@@ -14,7 +14,7 @@ MCP server.
 | `web-fetch` | `web_fetch` | network |
 | `web-search` | `web_search` | a [Tavily](https://tavily.com) API key, set in the bundle's settings |
 | `web-browse` | `web_browse` | Linux, with chromium at `/usr/bin/chromium` |
-| `voice-over` | `voiceover_frames`, `voiceover_transcribe`, and more to come: [its contract](bundles/voice-over/CONTRACT.md) | an [OpenRouter](https://openrouter.ai) API key, set in the bundle's settings; `ffmpeg` on `PATH` until the bundle carries its own; not released yet |
+| `voice-over` | `voiceover_frames`, `voiceover_transcribe`, `voiceover_script`, `voiceover_render`, and more to come: [its contract](bundles/voice-over/CONTRACT.md) | an [OpenRouter](https://openrouter.ai) API key, set in the bundle's settings; `ffmpeg` on `PATH` until the bundle carries its own; not released yet |
 
 A bundle is the unit of permission: tools that need the same things live
 together, and a tool that needs more has a bundle of its own.

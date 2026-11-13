@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -36,6 +37,7 @@ func newGateway(t *testing.T) (*gateway, *httptest.Server) {
 		var body map[string]any
 		b, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(b, &body)
+		r.Body = io.NopCloser(bytes.NewReader(b))
 		g.mu.Lock()
 		g.requests = append(g.requests, recorded{r.URL.Path, r.URL.RawQuery, r.Header.Get("Authorization"), body})
 		hs := g.answers[r.URL.Path]
