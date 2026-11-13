@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "voice-over",
   "display_name": "Voice-over",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Puts a synthesized voice-over on a video. Not complete yet: it can look at a video, transcribe it, place a script, speak it onto the video, and show the operator a page to review it on, in a host that shows MCP Apps or as a link on this machine; see CONTRACT.md for what it will hold.",
   "author": {
     "name": "JonasPf",
