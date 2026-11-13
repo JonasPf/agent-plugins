@@ -134,7 +134,7 @@ func TestTheReviewPageInABrowserFromALink(t *testing.T) {
 func reviewFixtures(t *testing.T) string {
 	dir := t.TempDir()
 	servetest.InDir(t, dir)
-	if out, err := exec.Command("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=1832x1522:r=5:d=205",
+	if out, err := exec.Command(fullFFmpeg(), "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=1832x1522:r=5:d=205",
 		"-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", "ultrafast", "-g", "100", "demo.mov").CombinedOutput(); err != nil {
 		t.Fatalf("could not make the video: %v\n%s", err, out)
 	}

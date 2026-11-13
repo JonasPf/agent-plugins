@@ -60,7 +60,7 @@ func TestTranscribeWritesTheTranscriptBesideTheVideo(t *testing.T) {
 	}
 	// What was sent is the video's sound as the contract has it: AAC, mono,
 	// 16 kHz, which ffmpeg encodes with no library of its own.
-	said, _ := exec.Command("ffmpeg", "-hide_banner", "-i", filepath.Join(dir, "clip.voiceover", "audio.m4a")).CombinedOutput()
+	said, _ := exec.Command(fullFFmpeg(), "-hide_banner", "-i", filepath.Join(dir, "clip.voiceover", "audio.m4a")).CombinedOutput()
 	if !strings.Contains(string(said), "Audio: aac") || !strings.Contains(string(said), "16000 Hz, mono") {
 		t.Errorf("audio.m4a is not AAC, mono at 16 kHz:\n%s", said)
 	}

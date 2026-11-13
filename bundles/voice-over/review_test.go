@@ -62,7 +62,7 @@ func spokenLine(t *testing.T, video string, v Voice, text string, seconds string
 		t.Fatal(err)
 	}
 	out := p.speechOf(v, text) + ".wav"
-	if b, err := exec.Command("ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+	if b, err := exec.Command(fullFFmpeg(), "-y", "-hide_banner", "-loglevel", "error",
 		"-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono:d=0.4", "-f", "lavfi", "-i", "sine=f=220:r=24000:d="+seconds,
 		"-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono:d=0.6", "-filter_complex", "concat=n=3:v=0:a=1", out).CombinedOutput(); err != nil {
 		t.Fatalf("could not make the speech: %v\n%s", err, b)

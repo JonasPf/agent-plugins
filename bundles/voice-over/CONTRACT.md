@@ -166,7 +166,7 @@ and the screenshots are made smaller together until they fit the rest. **Built.*
 | Key | What |
 |---|---|
 | `openrouter_api_key` | sensitive. The server's own key, reaching it as `VOICEOVER_OPENROUTER_KEY`. The server never reads `OPENROUTER_API_KEY`, so it cannot pick up a host's key by accident. Never logged, never in a result |
-| `ffmpeg_path` | optional. Otherwise the ffmpeg in the bundle, then the one on `PATH` |
+| `ffmpeg_path` | optional. Otherwise the ffmpeg in the bundle (`bin/ffmpeg`: FFmpeg 8.1.3, LGPL 2.1 or later, built by `ffmpeg/build.sh` with only what the tools use and no outside library; `bin/SOURCE.ffmpeg.txt` says how, and each release carries its source), then the one on `PATH` |
 | `openrouter_url` | optional. The gateway's address, reaching the server as `VOICEOVER_OPENROUTER_URL`; empty is OpenRouter's own |
 | `review` | `auto` (default), `apps`, `browser`; reaches the server as `VOICEOVER_REVIEW` |
 | `backend`, `local_models` | later, with the local backends |

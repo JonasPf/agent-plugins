@@ -16,11 +16,49 @@ permissions:
   contents: write
 
 jobs:
+  # The ffmpeg voice-over carries, for each platform it is packed for: static,
+  # in Alpine, on Linux; with the system's own libraries on macOS. Built once
+  # per version of ffmpeg/build.sh, and only for voice-over.
+  ffmpeg:
+    if: startsWith(github.ref_name, 'voice-over-v')
+    strategy:
+      matrix:
+        include:
+          - {platform: linux-amd64, runner: ubuntu-latest}
+          - {platform: linux-arm64, runner: ubuntu-24.04-arm}
+          - {platform: darwin-arm64, runner: macos-14}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ffmpeg-out
+          key: ffmpeg-${{ matrix.platform }}-${{ hashFiles('ffmpeg/build.sh') }}
+
+      - name: Build ffmpeg
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          case "${{ matrix.platform }}" in
+            linux-*) docker run --rm -v "$PWD:/w" -w /w alpine:3.22 sh -c 'apk add --no-cache build-base nasm curl xz && sh ffmpeg/build.sh ffmpeg-out' ;;
+            *) sh ffmpeg/build.sh ffmpeg-out ;;
+          esac
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: ffmpeg-out
+          retention-days: 1
+
   # A bundle's tests run where check.yml runs them: Debian, the chromium the
   # agent's image has, and the ffmpeg a conversation installs. On the bare
   # runner voice-over's tests have no ffmpeg, and its page's browser test
   # would say it could not run rather than run.
   test:
+    needs: ffmpeg
+    # The ffmpeg job runs for voice-over alone; skipped, it holds nothing up.
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     container:
       image: golang:1.25-bookworm
@@ -40,16 +78,29 @@ jobs:
       - name: Trust the checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
+      - uses: actions/download-artifact@v4
+        if: startsWith(github.ref_name, 'voice-over-v')
+        with:
+          name: ffmpeg-linux-amd64
+          path: /opt/voiceover-ffmpeg
+
+      # voice-over's tests run with the ffmpeg it carries first on PATH, and
+      # make their videos with the full one (Taskfile test:voice-over).
       - name: Test the bundle
         run: |
           name="${GITHUB_REF_NAME%-v*}"
           case "$name" in
             skill-*) go test ./cmd/... ;;
+            voice-over)
+              go test ./internal/... ./cmd/...
+              chmod +x /opt/voiceover-ffmpeg/ffmpeg
+              VOICEOVER_TEST_FFMPEG="$(command -v ffmpeg)" PATH="/opt/voiceover-ffmpeg:$PATH" go test ./bundles/voice-over ;;
             *) go test ./internal/... ./cmd/... "./bundles/$name" ;;
           esac
 
   release:
-    needs: test
+    needs: [ffmpeg, test]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,11 +128,27 @@ jobs:
           esac
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - uses: actions/download-artifact@v4
+        if: steps.tag.outputs.bundle == 'voice-over'
+        with:
+          pattern: ffmpeg-*
+          path: bins
+
+      # Each platform's ffmpeg goes under bin/ in that platform's bundle, and
+      # the source it was built from goes in the release beside them, which is
+      # how its licence asks for it to be offered (bin/SOURCE.ffmpeg.txt).
       - name: Pack the bundle
         if: steps.tag.outputs.bundle
         run: |
-          go run ./cmd/pack -bundle "${{ steps.tag.outputs.bundle }}" -out dist
-          cd dist && sha256sum *.mcpb > sha256sums.txt && cat sha256sums.txt
+          bin=""
+          if [ "${{ steps.tag.outputs.bundle }}" = voice-over ]; then
+            for d in bins/ffmpeg-*; do mv "$d" "bins/${d#bins/ffmpeg-}"; done
+            chmod +x bins/*/ffmpeg
+            mkdir -p dist && cp bins/linux-amd64/src/ffmpeg-*.tar.xz dist/
+            bin="-bin bins"
+          fi
+          go run ./cmd/pack -bundle "${{ steps.tag.outputs.bundle }}" $bin -out dist
+          cd dist && sha256sum * > sha256sums.txt && cat sha256sums.txt
 
       # A skill's scripts are tested by `task check` on the commit the tag is
       # on; here it is only packed.

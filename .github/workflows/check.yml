@@ -12,7 +12,34 @@ permissions:
   contents: read
 
 jobs:
+  # The ffmpeg voice-over carries, built as a release builds it: static, in
+  # Alpine. Run through docker because GitHub's own steps do not run inside an
+  # Alpine container. Built once per version of the script.
+  ffmpeg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: ffmpeg-out
+          key: ffmpeg-linux-amd64-${{ hashFiles('ffmpeg/build.sh') }}
+
+      - name: Build ffmpeg
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: docker run --rm -v "$PWD:/w" -w /w alpine:3.22 sh -c 'apk add --no-cache build-base nasm curl xz && sh ffmpeg/build.sh ffmpeg-out'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-linux-amd64
+          path: |
+            ffmpeg-out/ffmpeg
+            ffmpeg-out/*.txt
+          retention-days: 1
+
   check:
+    needs: ffmpeg
     runs-on: ubuntu-latest
     # Debian, because the agent's image is Debian, and web-browse drives the
     # chromium that image installs at /usr/bin/chromium. On the Ubuntu runner
@@ -38,6 +65,15 @@ jobs:
           sh testenv/install-nix.sh
           sh testenv/install-ffmpeg.sh
 
+      # voice-over's tests run with it first on PATH (Taskfile test:voice-over).
+      # An artifact loses the executable bit.
+      - uses: actions/download-artifact@v4
+        with:
+          name: ffmpeg-linux-amd64
+          path: /opt/voiceover-ffmpeg
+      - name: Make it runnable
+        run: chmod +x /opt/voiceover-ffmpeg/ffmpeg && /opt/voiceover-ffmpeg/ffmpeg -hide_banner -version | head -1
+
       - name: Install Task
         run: sh -c "$(curl -fsSL https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
 
@@ -46,4 +82,6 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: task check
+        env:
+          VOICEOVER_FFMPEG_DIR: /opt/voiceover-ffmpeg
         run: task check

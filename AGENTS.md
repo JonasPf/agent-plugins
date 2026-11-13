@@ -37,6 +37,13 @@ is a signal. Fix the cause.
   `_meta["io.github.jonaspf.agent"]`: `timeout_seconds`, `reads`.
 - **A behaviour change bumps the bundle's `version`** in its `manifest.json`,
   in the same change.
+- **voice-over carries its own ffmpeg**, built by `ffmpeg/build.sh` from
+  ffmpeg's source at a pinned version, with only what the bundle's tools use
+  and no library from outside ffmpeg, so it stays under ffmpeg's LGPL alone.
+  `task check` builds it once into `.cache/ffmpeg` (a C compiler, and `nasm`
+  on x86-64) and runs voice-over's tests with it first on PATH; a filter or
+  codec the tools start using and the build leaves out fails there. Add it to
+  the lists in `build.sh`, never an outside library without asking.
 - **A skill is text a model reads, plus scripts it runs.** Its folder is its
   name. A script is tested on real input (`testenv/`, run by `task check`,
   which needs `python3` and ffmpeg 8). Its `evals/` are in the layout
