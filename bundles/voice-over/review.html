@@ -544,7 +544,7 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
     if (!h) return;
     if (sounding(l)) { a.pause(); return; }
     playing = l.id;
-    a.src = 'data:audio/mpeg;base64,' + h.audio;
+    a.src = 'data:audio/mp4;base64,' + h.audio;
     a.play().catch(function () {});
   }
   function gripLabel(l) {

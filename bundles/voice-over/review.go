@@ -237,12 +237,14 @@ func hearLines(ctx context.Context, ff ffmpeg, p project, lines []scriptLine, v 
 		}
 	}
 	for _, h := range spoken {
-		mp3 := h.pcm + ".mp3"
+		// AAC in an MP4: any browser plays it, and ffmpeg makes it with no
+		// library of its own.
+		m4a := h.pcm + ".m4a"
 		if _, err := ff.run(ctx, "-f", "s16le", "-ar", fmt.Sprint(trackRate), "-ac", "1", "-i", h.pcm, "-ac", "1",
-			"-ar", fmt.Sprint(rate), "-c:a", "libmp3lame", "-b:a", fmt.Sprintf("%dk", kbps), "-id3v2_version", "0", "-f", "mp3", mp3); err != nil {
+			"-ar", fmt.Sprint(rate), "-c:a", "aac", "-b:a", fmt.Sprintf("%dk", kbps), "-f", "mp4", m4a); err != nil {
 			return fmt.Errorf("line %d's speech could not be made playable: %v", h.i+1, err)
 		}
-		b, err := os.ReadFile(mp3)
+		b, err := os.ReadFile(m4a)
 		if err != nil {
 			return err
 		}

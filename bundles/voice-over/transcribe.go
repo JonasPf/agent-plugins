@@ -78,8 +78,10 @@ func transcribe(ctx context.Context, raw json.RawMessage) (string, error) {
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		return "", fmt.Errorf("could not make %s: %v", shown(p.dir), err)
 	}
-	audio := filepath.Join(p.dir, "audio.mp3")
-	if _, err := ff.run(ctx, "-i", p.video, "-vn", "-ac", "1", "-ar", "16000", "-b:a", "64k", audio); err != nil {
+	// AAC, which ffmpeg encodes with no library of its own: at 48 kbps, the
+	// 40 minutes one call carries come to about 14 MB.
+	audio := filepath.Join(p.dir, "audio.m4a")
+	if _, err := ff.run(ctx, "-i", p.video, "-vn", "-ac", "1", "-ar", "16000", "-c:a", "aac", "-b:a", "48k", audio); err != nil {
 		return "", fmt.Errorf("could not take the sound out of %s: %v", shown(p.video), err)
 	}
 	parts, err := cutParts(ctx, ff, p, audio, c.seconds)
@@ -142,7 +144,7 @@ func cutParts(ctx context.Context, ff ffmpeg, p project, audio string, seconds f
 	}
 	var parts []part
 	for i, start := 0, 0.0; start < seconds; i, start = i+1, start+partSeconds {
-		out := filepath.Join(dir, fmt.Sprintf("audio-%03d.mp3", i))
+		out := filepath.Join(dir, fmt.Sprintf("audio-%03d.m4a", i))
 		if _, err := ff.run(ctx, "-ss", fmt.Sprintf("%.3f", start), "-t", fmt.Sprintf("%.3f", partSeconds),
 			"-i", audio, "-c", "copy", out); err != nil {
 			return nil, fmt.Errorf("could not cut part %d of the sound: %v", i+1, err)

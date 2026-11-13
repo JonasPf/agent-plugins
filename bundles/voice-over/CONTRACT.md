@@ -23,7 +23,7 @@ is at the end.
 
 | File | Written by | What it is |
 |---|---|---|
-| `audio.mp3` | transcribe | the video's sound, mono 16 kHz 64 kbps |
+| `audio.m4a` | transcribe | the video's sound: AAC, mono, 16 kHz, 48 kbps. ffmpeg encodes AAC with no library of its own, so the bundled ffmpeg needs none |
 | `segments.txt` | transcribe | the transcript, one `[start–end] words` line per phrase, times from the start of the video |
 | `script.json` | script, save_review | the lines: `[{"at": seconds, "text": "…"}]`, in order. Always holds times, never `starts_with` |
 | `project.json` | script, render, save_review | the voice and model chosen; `translate_to` while a translation is owed |
@@ -151,7 +151,7 @@ The message is the tool's own answer, so its words are the server's. **Built.**
 Everything the page shows, made from the project as it is: the video's length, a screenshot every
 30 seconds (fewer for a video over an hour, at most 120), the voices of the two models with their
 prices and a sample of each, the languages, the pace and the most characters a line may have, and
-each line, with its real length and its speech as MP3 when it is spoken in the voice chosen. All
+each line, with its real length and its speech, AAC in an MP4, when it is spoken in the voice chosen. All
 of it, base64 included, comes to at most 15 MB: the speech takes the best quality that fits half,
 and the screenshots are made smaller together until they fit the rest. **Built.**
 

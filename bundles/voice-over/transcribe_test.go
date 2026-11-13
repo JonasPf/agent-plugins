@@ -58,12 +58,14 @@ func TestTranscribeWritesTheTranscriptBesideTheVideo(t *testing.T) {
 	if got := mustRead(t, filepath.Join(dir, "clip.voiceover", "segments.txt")); got != "[0.00–2.50] So in this case\n[2.50–4.10] we use Blockdaemon.\n" {
 		t.Errorf("segments.txt = %q", got)
 	}
-	// What was sent is the video's sound as the contract has it: mono, 16 kHz.
-	said, _ := exec.Command("ffmpeg", "-hide_banner", "-i", filepath.Join(dir, "clip.voiceover", "audio.mp3")).CombinedOutput()
-	if !strings.Contains(string(said), "16000 Hz, mono") {
-		t.Errorf("audio.mp3 is not mono at 16 kHz:\n%s", said)
+	// What was sent is the video's sound as the contract has it: AAC, mono,
+	// 16 kHz, which ffmpeg encodes with no library of its own.
+	said, _ := exec.Command("ffmpeg", "-hide_banner", "-i", filepath.Join(dir, "clip.voiceover", "audio.m4a")).CombinedOutput()
+	if !strings.Contains(string(said), "Audio: aac") || !strings.Contains(string(said), "16000 Hz, mono") {
+		t.Errorf("audio.m4a is not AAC, mono at 16 kHz:\n%s", said)
 	}
-	if r := g.asked("/audio/transcriptions")[0]; at(r.body, "language") != "en" || at(r.body, "provider", "options", "deepinfra", "prompt") != "Blockdaemon" {
+	if r := g.asked("/audio/transcriptions")[0]; at(r.body, "language") != "en" || at(r.body, "provider", "options", "deepinfra", "prompt") != "Blockdaemon" ||
+		at(r.body, "input_audio", "format") != "m4a" {
 		t.Errorf("the language and terms did not reach the model: %v", r.body)
 	}
 }
