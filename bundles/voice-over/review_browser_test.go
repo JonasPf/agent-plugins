@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/JonasPf/agent-plugins/internal/servetest"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // The review page in a real browser, in a box shaped like the agent's, driven
@@ -62,9 +63,75 @@ func seconds(s string) float64 {
 	return a*60 + b
 }
 
-func TestTheReviewPageInABrowser(t *testing.T) {
-	path := chromePath(t)
-	_ = path
+// reviewHost is what shows the page: the stand-in for the agent's box, or the
+// bundle's own server behind a link.
+type reviewHost interface {
+	open(b *browser, video string)
+	saved() int     // how many times Send saved
+	said() []string // what Send gave the conversation
+	forget()
+	data() string // what the page was given to show
+}
+
+func (h *appHost) open(b *browser, video string) { b.openURL(h.srv.URL + "/?video=" + video) }
+func (h *appHost) saved() int                    { return len(h.savedCalls()) }
+func (h *appHost) data() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.data_
+}
+
+// linkPage is a host that shows no pages: the page comes from a link the
+// review tool gives, opened straight in the browser, and Send's message is
+// the operator's to paste back, so what was said is what the page offers.
+type linkPage struct {
+	t  *testing.T
+	cs *mcp.ClientSession
+	b  *browser
+}
+
+func (l *linkPage) open(b *browser, video string) {
+	l.t.Helper()
+	res := servetest.Call(l.t, l.cs, "voiceover_review", `{"video":"`+video+`"}`)
+	link := reviewLink.FindString(res.Text)
+	if link == "" {
+		l.t.Fatalf("voiceover_review gave no link: %+v", res)
+	}
+	l.b = b
+	b.openURL(link)
+}
+func (l *linkPage) said() []string {
+	if !l.b.inBool(`!document.getElementById('back').hidden`) {
+		return nil
+	}
+	return []string{l.b.inStr(`document.getElementById('pasteBack').textContent`)}
+}
+func (l *linkPage) saved() int { return len(l.said()) }
+func (l *linkPage) forget()    {}
+func (l *linkPage) data() string {
+	return servetest.Call(l.t, l.cs, "voiceover_review_data", `{"video":"heard.mov"}`).Text
+}
+
+func TestTheReviewPageInABrowserAsAnApp(t *testing.T) {
+	chromePath(t)
+	dir := reviewFixtures(t)
+	h := newAppHost(t, servetest.ClientWith(t, appsCaps(), manifest, tools, runs, pages...))
+	checkReviewPage(t, newBrowser(t), h, dir, false)
+}
+
+func TestTheReviewPageInABrowserFromALink(t *testing.T) {
+	chromePath(t)
+	dir := reviewFixtures(t)
+	t.Cleanup(closeReviewLink)
+	l := &linkPage{t: t, cs: servetest.Client(t, manifest, tools, runs, pages...)}
+	b := newBrowser(t)
+	b.direct = true
+	checkReviewPage(t, b, l, dir, true)
+}
+
+// reviewFixtures is a 205-second video three times over: with a script not
+// spoken yet, with the same script spoken in gareth, and with no script.
+func reviewFixtures(t *testing.T) string {
 	dir := t.TempDir()
 	servetest.InDir(t, dir)
 	if out, err := exec.Command("ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=1832x1522:r=5:d=205",
@@ -93,9 +160,12 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	}
 	g := withGateway(t)
 	g.on("/models", answer(200, allVoices))
-	h := newAppHost(t, servetest.Client(t, manifest, tools, runs, pages...))
-	b := newBrowser(t)
+	return dir
+}
 
+// checkReviewPage is every check of the page, as a person uses it. Direct is
+// a page opened from a link, with no box around it.
+func checkReviewPage(t *testing.T, b *browser, h reviewHost, dir string, direct bool) {
 	check := func(what string, ok bool, detail ...any) {
 		t.Helper()
 		if !ok {
@@ -142,9 +212,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	sendNow := func() { b.in(`document.getElementById('send').click()`, nil) }
 	pageData := func() pageSays {
 		var d pageSays
-		h.mu.Lock()
-		raw := h.data
-		h.mu.Unlock()
+		raw := h.data()
 		if err := json.Unmarshal([]byte(raw), &d); err != nil {
 			t.Fatalf("the page's data: %v", err)
 		}
@@ -156,10 +224,12 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 
 	// ---- desktop, a script not spoken yet
 	b.viewport(1280, 1200, false)
-	b.open(h, "spoken.mov")
-	var sandbox string
-	b.top(`document.querySelector('iframe').getAttribute('sandbox')`, &sandbox)
-	check("the page runs in the box", sandbox == "allow-scripts", sandbox)
+	h.open(b, "spoken.mov")
+	if !direct {
+		var sandbox string
+		b.top(`document.querySelector('iframe').getAttribute('sandbox')`, &sandbox)
+		check("the page runs in the box", sandbox == "allow-scripts", sandbox)
+	}
 	check("every screenshot loads under the policy", b.inBool(`[...document.images].length === 7 && [...document.images].every(i => i.complete && i.naturalWidth >= 700)`))
 	all := lines()
 	scale := b.inNum(`document.querySelector('.slot[data-t="30"]').getBoundingClientRect().top - document.querySelector('.slot[data-t="0"]').getBoundingClientRect().top`) / 30
@@ -180,7 +250,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	var title string
 	b.top(`document.title`, &title)
 	check("a tag in a line stays words", strings.Contains(all[9].Words, "<img src=x") && b.inNum(`document.querySelectorAll('.line img').length`) == 0 &&
-		b.inNum(`document.images.length`) == 7 && title == "host", all[9])
+		b.inNum(`document.images.length`) == 7 && (title == "host" || direct && title == "Voice-over review"), all[9], title)
 	b.shot("desktop")
 	check("no line is cut off", clipped() == 0, clipped())
 	b.viewport(560, 1200, false)
@@ -204,7 +274,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	time.Sleep(40 * time.Millisecond)
 	check("a line moves with the pointer and says where it is", moving() == "0:15.0", moving())
 	var edge float64
-	b.top(`document.querySelector('iframe').getBoundingClientRect().bottom - 30`, &edge)
+	edge = b.bottom() - 30
 	b.press("mouseMoved", point{from.X, edge})
 	time.Sleep(100 * time.Millisecond)
 	early := moving()
@@ -368,7 +438,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	check("Send says what it will do", strings.Contains(proposal(), "10 lines") && strings.Contains(proposal(), "alice"), proposal())
 	check("no Approve on the page", !b.inBool(`[...document.querySelectorAll('button')].some(b => /approve/i.test(b.textContent))`))
 	spokenScript := mustRead(t, filepath.Join(dir, "spoken.voiceover", "script.json"))
-	check("nothing is saved before Send", len(h.saved()) == 0, h.saved())
+	check("nothing is saved before Send", h.saved() == 0, h.saved())
 	b.shot("send")
 	pick("0|gareth")
 	b.until("Send follows the voice", func() bool { return strings.Contains(proposal(), "gareth") })
@@ -385,7 +455,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	b.replaceText(".line:nth-of-type(1) .words", "Changed my mind.")
 	sendNow()
 	b.until("Send", func() bool { return len(h.said()) == 1 })
-	check("Send saves once, then speaks", len(h.saved()) == 1, h.saved())
+	check("Send saves once, then speaks", h.saved() == 1, h.saved())
 	got := readScriptFile(t, filepath.Join(dir, "spoken.voiceover", "script.json"))
 	check("the script holds every line, each with a time", len(got) == 10 && got[0].At == 3 && got[9].At == 190, got)
 	check("Send carries the last change, however quick", got[0].Text == "Changed my mind.", got[0])
@@ -398,21 +468,31 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 		strings.Contains(msg, "alice") && strings.Contains(msg, "voiceover_render"), msg)
 	b.until("the page says it was sent", func() bool { return b.inStr(`document.getElementById('send').textContent`) == "Sent" })
 	check("and Send is done", off("send") && strings.Contains(b.inStr(`document.getElementById('done').textContent`), "Sent."))
+	if direct {
+		// A page in a browser cannot reach the conversation: it gives the
+		// message to paste there, and copies it.
+		check("the page gives Send's message to paste back", b.inStr(`document.getElementById('pasteBack').textContent`) == msg &&
+			strings.Contains(b.inStr(`document.getElementById('done').textContent`), "Paste this"))
+		b.call("Browser.grantPermissions", map[string]any{"permissions": []string{"clipboardReadWrite", "clipboardSanitizedWrite"}}, "", nil)
+		b.click("#copy")
+		b.until("copied", func() bool { return b.inStr(`document.getElementById('copy').textContent`) == "Copied" })
+		check("Copy puts it on the clipboard", b.inStr(`navigator.clipboard.readText()`) == msg)
+	}
 
 	// a line too long to speak
 	h.forget()
-	b.open(h, "spoken.mov")
+	h.open(b, "spoken.mov")
 	b.replaceText(".line:nth-of-type(1) .words", strings.Repeat("x", 5001))
 	b.until("the hold", func() bool { return strings.Contains(held(), "too long") })
 	sendNow()
 	time.Sleep(100 * time.Millisecond)
-	check("Send will not take a line too long to speak", off("send") && len(h.saved()) == 0 && len(h.said()) == 0, h.said())
+	check("Send will not take a line too long to speak", off("send") && h.saved() == 0 && len(h.said()) == 0, h.said())
 	b.click("#undo")
 	b.until("the hold lifted", func() bool { return held() == "" && !off("send") })
 
 	// ---- the same lines, spoken: each as long as its speech, and heard
 	h.forget()
-	b.open(h, "heard.mov")
+	h.open(b, "heard.mov")
 	data := pageData()
 	chars, secs := 0.0, 0.0
 	for _, l := range data.Lines {
@@ -527,12 +607,12 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 
 	// ---- a video with no words at all
 	h.forget()
-	b.open(h, "silent.mov")
+	h.open(b, "silent.mov")
 	check("an empty page asks for the script", b.inBool(`!document.getElementById('paste').hidden`))
 	b.until("the hold", func() bool { return strings.Contains(held(), "at least one line") })
 	sendNow()
 	time.Sleep(100 * time.Millisecond)
-	check("Send with nothing says so and does nothing", len(h.saved()) == 0 && len(h.said()) == 0, h.said())
+	check("Send with nothing says so and does nothing", h.saved() == 0 && len(h.said()) == 0, h.said())
 	b.replaceText("#pasteText", "Version 2.3 of the report opens here. Then the receipts follow!\nAnd the last line ends it.")
 	b.click("#pasteGo")
 	all = lines()
@@ -548,7 +628,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 
 	// ---- a phone, with a finger
 	b.viewport(390, 844, true)
-	b.open(h, "spoken.mov")
+	h.open(b, "spoken.mov")
 	b.shot("phone")
 	b.in(`document.scrollingElement.scrollTop = 99999`, nil)
 	time.Sleep(40 * time.Millisecond)
@@ -613,7 +693,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	check("and nothing runs off the side", b.inNum(`document.documentElement.scrollWidth - document.documentElement.clientWidth`) <= 0, sticking())
 
 	// a spoken page on a phone, and a line split with a finger
-	b.open(h, "heard.mov")
+	h.open(b, "heard.mov")
 	check("a spoken page fits a phone: nothing runs off the side, hides or is cut off",
 		b.inNum(`document.documentElement.scrollWidth - document.documentElement.clientWidth`) <= 0 && covered() == 0 && clipped() == 0,
 		sticking(), covered(), clipped())
@@ -635,7 +715,7 @@ func TestTheReviewPageInABrowser(t *testing.T) {
 	// ---- dark
 	b.viewport(1280, 900, false)
 	b.call("Emulation.setEmulatedMedia", map[string]any{"features": []map[string]string{{"name": "prefers-color-scheme", "value": "dark"}}}, b.page, nil)
-	b.open(h, "spoken.mov")
+	h.open(b, "spoken.mov")
 	b.shot("dark")
 	check("no line is cut off in the dark", clipped() == 0, clipped())
 

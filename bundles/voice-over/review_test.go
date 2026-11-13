@@ -45,8 +45,9 @@ type pageSays struct {
 	Samples  map[string]map[string]string `json:"samples"`
 }
 
+// pageClient is a host that shows pages, as this agent is.
 func pageClient(t *testing.T) *mcp.ClientSession {
-	return servetest.Client(t, manifest, tools, runs, pages...)
+	return servetest.ClientWith(t, appsCaps(), manifest, tools, runs, pages...)
 }
 
 // spokenLine makes the speech of a line in a voice, as voiceover_render would

@@ -120,9 +120,14 @@ Send will speak and cost. Works with no script (the operator writes it there) an
 not spoken yet (lengths are then a guess, shown dashed).
 
 - In a host with MCP Apps the tool brings the page: `_meta.ui.resourceUri` is
-  `ui://voice-over/review`, served as `text/html;profile=mcp-app`. **Built.** Elsewhere the
-  server serves it on `127.0.0.1` and returns the link; which one, `user_config.review`. Not
-  built yet.
+  `ui://voice-over/review`, served as `text/html;profile=mcp-app`. **Built.**
+- Elsewhere the server serves the same page on `127.0.0.1`, at a free port with a random token
+  every request must carry, and returns the link as text. Through it the page calls its two tools
+  and nothing else; Send gives the operator its message to paste back into the chat, with a Copy
+  button, and the link stops then, after two hours left alone, or when a newer review opens one.
+  It needs a host that keeps the server running between calls. Which way: `user_config.review`,
+  `auto` (the host's capability), `apps` or `browser`. No URL elicitation: one way to give the
+  link, text, works in every host. **Built.**
 - Returns what to tell the operator, and that the turn ends here. Its result stays short: a host
   keeps the whole result of a call that opened a page.
 
@@ -163,7 +168,7 @@ and the screenshots are made smaller together until they fit the rest. **Built.*
 | `openrouter_api_key` | sensitive. The server's own key, reaching it as `VOICEOVER_OPENROUTER_KEY`. The server never reads `OPENROUTER_API_KEY`, so it cannot pick up a host's key by accident. Never logged, never in a result |
 | `ffmpeg_path` | optional. Otherwise the ffmpeg in the bundle, then the one on `PATH` |
 | `openrouter_url` | optional. The gateway's address, reaching the server as `VOICEOVER_OPENROUTER_URL`; empty is OpenRouter's own |
-| `review` | `auto` (default), `apps`, `browser` |
+| `review` | `auto` (default), `apps`, `browser`; reaches the server as `VOICEOVER_REVIEW` |
 | `backend`, `local_models` | later, with the local backends |
 
 ## Every trap in the old skill, and where it went

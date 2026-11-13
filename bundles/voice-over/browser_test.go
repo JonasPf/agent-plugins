@@ -78,7 +78,7 @@ type appHost struct {
 	mu       sync.Mutex
 	calls    []string
 	messages []string
-	data     string // what the last voiceover_review_data answered
+	data_    string // what the last voiceover_review_data answered
 }
 
 func newAppHost(t *testing.T, cs *mcp.ClientSession) *appHost {
@@ -115,7 +115,7 @@ func newAppHost(t *testing.T, cs *mcp.ClientSession) *appHost {
 		h.mu.Lock()
 		h.calls = append(h.calls, p.Name)
 		if p.Name == "voiceover_review_data" && !res.IsError {
-			h.data = res.Content[0].(*mcp.TextContent).Text
+			h.data_ = res.Content[0].(*mcp.TextContent).Text
 		}
 		h.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -138,7 +138,7 @@ func newAppHost(t *testing.T, cs *mcp.ClientSession) *appHost {
 	return h
 }
 
-func (h *appHost) saved() []string {
+func (h *appHost) savedCalls() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	var out []string
@@ -194,6 +194,8 @@ type browser struct {
 	children []string
 	contexts []cdpContext
 	noise    []string
+	// direct is a page opened in the tab itself, with no box around it.
+	direct bool
 }
 
 type cdpReply struct {
@@ -398,6 +400,9 @@ func (b *browser) top(expr string, out any) {
 // frame evaluates inside the box: in the context of the page's frame, or in
 // the frame's own session when the browser put it in a process of its own.
 func (b *browser) frame(expr string, out any) error {
+	if b.direct {
+		return b.eval(expr, 0, b.page, out)
+	}
 	var tree struct {
 		FrameTree struct {
 			ChildFrames []struct {
@@ -483,14 +488,14 @@ func (b *browser) tryBool(expr string) bool {
 	return b.frame(expr, &v) == nil && v
 }
 
-func (b *browser) open(h *appHost, video string) {
+func (b *browser) openURL(url string) {
 	b.t.Helper()
 	b.mu.Lock()
 	b.contexts, b.children = nil, nil
 	b.mu.Unlock()
 	b.call("Page.navigate", map[string]any{"url": "about:blank"}, b.page, nil)
 	time.Sleep(50 * time.Millisecond)
-	b.call("Page.navigate", map[string]any{"url": h.srv.URL + "/?video=" + video}, b.page, nil)
+	b.call("Page.navigate", map[string]any{"url": url}, b.page, nil)
 	b.until("the page drawn", func() bool { return b.tryBool(`document.querySelectorAll('.slot').length > 0`) })
 }
 
@@ -514,7 +519,9 @@ func (b *browser) at(selector string, across float64) point {
 	b.in(fmt.Sprintf(`document.querySelectorAll(%s)[0].scrollIntoView({block:'center'})`, sel), nil)
 	time.Sleep(40 * time.Millisecond)
 	var box, r struct{ X, Y, W, H float64 }
-	b.top(`(() => { const b = document.querySelector('iframe').getBoundingClientRect(); return {X:b.x,Y:b.y}; })()`, &box)
+	if !b.direct {
+		b.top(`(() => { const b = document.querySelector('iframe').getBoundingClientRect(); return {X:b.x,Y:b.y}; })()`, &box)
+	}
 	b.in(fmt.Sprintf(`(() => { const b = document.querySelectorAll(%s)[0].getBoundingClientRect(); return {X:b.x,Y:b.y,W:b.width,H:b.height}; })()`, sel), &r)
 	return point{box.X + r.X + r.W*across, box.Y + r.Y + r.H/2}
 }
@@ -564,9 +571,7 @@ func (b *browser) key(name string) {
 func (b *browser) drag(selector string, by float64, hold time.Duration) {
 	b.t.Helper()
 	from := b.at(selector, 0.5)
-	var bottom float64
-	b.top(`document.querySelector('iframe').getBoundingClientRect().bottom - 5`, &bottom)
-	to := point{from.X, min(from.Y+by, bottom)}
+	to := point{from.X, min(from.Y+by, b.bottom()-5)}
 	b.mouse("mouseMoved", from)
 	b.press("mousePressed", from)
 	b.press("mouseMoved", to)
@@ -593,4 +598,15 @@ func (b *browser) shot(name string) {
 	var r struct{ Data []byte }
 	b.call("Page.captureScreenshot", map[string]any{"format": "png"}, b.page, &r)
 	_ = os.WriteFile(filepath.Join(dir, name+".png"), r.Data, 0o644)
+}
+
+// bottom is where the page's box ends in the tab, or the tab's own end.
+func (b *browser) bottom() float64 {
+	var v float64
+	if b.direct {
+		b.top(`innerHeight`, &v)
+	} else {
+		b.top(`document.querySelector('iframe').getBoundingClientRect().bottom`, &v)
+	}
+	return v
 }

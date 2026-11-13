@@ -22,6 +22,13 @@ type Result struct {
 // test does.
 func Client(t *testing.T, manifest, tools []byte, runs map[string]serve.Run, pages ...serve.Page) *mcp.ClientSession {
 	t.Helper()
+	return ClientWith(t, nil, manifest, tools, runs, pages...)
+}
+
+// ClientWith is Client for a host that declares capabilities, such as
+// showing pages (MCP Apps).
+func ClientWith(t *testing.T, caps *mcp.ClientCapabilities, manifest, tools []byte, runs map[string]serve.Run, pages ...serve.Page) *mcp.ClientSession {
+	t.Helper()
 	s, err := serve.New(manifest, tools, runs, pages...)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +37,7 @@ func Client(t *testing.T, manifest, tools []byte, runs map[string]serve.Run, pag
 	if _, err := s.Connect(context.Background(), there, nil); err != nil {
 		t.Fatal(err)
 	}
-	cs, err := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0"}, nil).Connect(context.Background(), here, nil)
+	cs, err := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0"}, &mcp.ClientOptions{Capabilities: caps}).Connect(context.Background(), here, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
