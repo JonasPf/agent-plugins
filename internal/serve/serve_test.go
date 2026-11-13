@@ -9,6 +9,7 @@ import (
 
 	"github.com/JonasPf/agent-plugins/internal/serve"
 	"github.com/JonasPf/agent-plugins/internal/servetest"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const manifest = `{"name":"demo","version":"1.2.3"}`
@@ -71,5 +72,56 @@ func TestDescriptionsAndCodeMustAgree(t *testing.T) {
 	}
 	if _, err := serve.New([]byte(`{"name":"demo"}`), []byte(tools), map[string]serve.Run{"echo": echo}); err == nil {
 		t.Error("a manifest with no version was accepted")
+	}
+}
+
+const withPage = `[{"name":"show","description":"Show the page.","inputSchema":{"type":"object"},
+  "_meta":{"ui":{"resourceUri":"ui://demo/page"}}},
+ {"name":"save","description":"What the page saves with.","inputSchema":{"type":"object"},
+  "_meta":{"ui":{"visibility":["app"]}}}]`
+
+// A tool's _meta in tools.json reaches the host as written: it is how a tool
+// names the page its result opens (MCP Apps), and who may call it.
+func TestAToolCarriesItsMeta(t *testing.T) {
+	cs := servetest.Client(t, []byte(manifest), []byte(withPage), map[string]serve.Run{"show": echo, "save": echo},
+		serve.Page{URI: "ui://demo/page", HTML: "<p>the page</p>"})
+	got, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{}
+	for _, tool := range got.Tools {
+		b, _ := json.Marshal(tool.Meta)
+		meta[tool.Name] = string(b)
+	}
+	if meta["show"] != `{"ui":{"resourceUri":"ui://demo/page"}}` || meta["save"] != `{"ui":{"visibility":["app"]}}` {
+		t.Errorf("listed _meta = %v", meta)
+	}
+}
+
+// "A page is served as an MCP App: read by its ui:// address, as HTML of the
+// Apps profile."
+func TestAPageIsServedAsAnApp(t *testing.T) {
+	cs := servetest.Client(t, []byte(manifest), []byte(withPage), map[string]serve.Run{"show": echo, "save": echo},
+		serve.Page{URI: "ui://demo/page", HTML: "<p>the page</p>"})
+	res, err := cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "ui://demo/page"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Contents) != 1 || res.Contents[0].MIMEType != "text/html;profile=mcp-app" || res.Contents[0].Text != "<p>the page</p>" {
+		t.Errorf("read %+v", res.Contents)
+	}
+}
+
+// A tool that names a page the bundle does not have opens nothing; a page no
+// tool names is never shown.
+func TestPagesAndToolsMustAgree(t *testing.T) {
+	runs := map[string]serve.Run{"show": echo, "save": echo}
+	if _, err := serve.New([]byte(manifest), []byte(withPage), runs); err == nil {
+		t.Error("a tool naming a page that is not there was accepted")
+	}
+	if _, err := serve.New([]byte(manifest), []byte(withPage), runs,
+		serve.Page{URI: "ui://demo/page", HTML: "x"}, serve.Page{URI: "ui://demo/other", HTML: "y"}); err == nil {
+		t.Error("a page no tool names was accepted")
 	}
 }

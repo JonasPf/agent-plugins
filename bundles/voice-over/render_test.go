@@ -117,7 +117,7 @@ func near(got, want, by float64) bool { return math.Abs(got-want) <= by }
 
 func render(t *testing.T, args string) servetest.Result {
 	t.Helper()
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 	return servetest.Call(t, cs, "voiceover_render", args)
 }
 

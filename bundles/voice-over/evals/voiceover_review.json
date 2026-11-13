@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "name": "shows the operator the page after the voice-over is made",
+      "prompt": "voiceover_render just wrote demo.voiceover.mp4 from demo.mov's script. Let me check it and change what I want before we finish.",
+      "tools": [
+        "voiceover_review"
+      ],
+      "expect": {
+        "tool": "voiceover_review",
+        "args_match": {
+          "video": "^demo\\.mov$"
+        }
+      }
+    },
+    {
+      "name": "lets the operator write the script themselves",
+      "prompt": "I want to write the voice-over for promo.mp4 myself. Give me the page to do it on.",
+      "tools": [
+        "voiceover_review"
+      ],
+      "expect": {
+        "tool": "voiceover_review",
+        "args_match": {
+          "video": "^promo\\.mp4$"
+        }
+      }
+    }
+  ]
+}

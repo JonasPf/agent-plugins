@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -40,7 +41,8 @@ type listed struct {
 // A bundle's manifest lists its tools for a host to show before anything is
 // run, and tools.json is what the server then says. Two lists of the same
 // thing drift, so they are held to each other; and every tool has the eval
-// cases that test its description.
+// cases that test its description. A tool only a page may call (MCP Apps,
+// visibility ["app"]) is never shown to a model, so it has none to test.
 func TestEveryBundleSaysTheSameInItsManifestAsItsServer(t *testing.T) {
 	for _, name := range bundles(t) {
 		dir := filepath.Join(root, "bundles", name)
@@ -63,7 +65,22 @@ func TestEveryBundleSaysTheSameInItsManifestAsItsServer(t *testing.T) {
 		if !reflect.DeepEqual(m.Tools, served) {
 			t.Errorf("%s: manifest.json and tools.json list different tools:\n%+v\n%+v", name, m.Tools, served)
 		}
-		for _, tool := range served {
+		var shown []struct {
+			Name string `json:"name"`
+			Meta struct {
+				UI struct {
+					Visibility []string `json:"visibility"`
+				} `json:"ui"`
+			} `json:"_meta"`
+		}
+		readJSON(t, filepath.Join(dir, "tools.json"), &shown)
+		for _, tool := range shown {
+			if v := tool.Meta.UI.Visibility; v != nil && !slices.Contains(v, "model") {
+				if _, err := os.Stat(filepath.Join(dir, "evals", tool.Name+".json")); err == nil {
+					t.Errorf("%s: the tool %s is for its page only, and a model is never shown it to be tested", name, tool.Name)
+				}
+				continue
+			}
 			var suite struct {
 				Cases []json.RawMessage `json:"cases"`
 			}

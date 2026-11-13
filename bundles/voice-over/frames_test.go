@@ -77,7 +77,7 @@ func TestFramesSaysWhatTheVideoIsAndWritesTheExactFrames(t *testing.T) {
 	dir := t.TempDir()
 	servetest.InDir(t, dir)
 	bands(t, "clip.mov", true, "red:2", "green:2", "blue:2")
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_frames", `{"video":"clip.mov","at":[1,3,5.5]}`)
 	if res.Error {
@@ -102,7 +102,7 @@ func TestFramesWithNoTimesOnlyDescribesTheVideo(t *testing.T) {
 	dir := t.TempDir()
 	servetest.InDir(t, dir)
 	bands(t, "silent.mp4", false, "red:3")
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_frames", `{"video":"silent.mp4"}`)
 	if res.Error || !strings.Contains(res.Text, "3.0 s, 320x180, 30 fps, no sound") {
@@ -121,7 +121,7 @@ func TestFramesRefusesWhatItCannotDo(t *testing.T) {
 	if err := os.WriteFile("notes.txt", []byte("not a video"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cs := servetest.Client(t, manifest, tools, runs)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	var many []string
 	for i := 0; i < 21; i++ {

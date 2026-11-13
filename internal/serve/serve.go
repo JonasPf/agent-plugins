@@ -27,13 +27,27 @@ type toolDef struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	InputSchema json.RawMessage `json:"inputSchema"`
+	// Meta is the tool's _meta, as written: under ui, the page its result
+	// opens and who may call it (MCP Apps).
+	Meta map[string]any `json:"_meta,omitempty"`
 }
+
+// Page is a page a tool's result opens, an MCP App: HTML that a host shows
+// in a box and that talks to it in messages. A tool names it by its ui://
+// address under _meta.ui.resourceUri.
+type Page struct {
+	URI  string
+	HTML string
+}
+
+// AppMIME is what a page is served as.
+const AppMIME = "text/html;profile=mcp-app"
 
 // New builds the server for a bundle from its manifest.json, its tools.json,
 // and the code for each tool. A tool described and not written, or written and
 // not described, is refused: either is a tool a model would be shown and could
 // not call, or could call and was never shown.
-func New(manifest, tools []byte, runs map[string]Run) (*mcp.Server, error) {
+func New(manifest, tools []byte, runs map[string]Run, pages ...Page) (*mcp.Server, error) {
 	var m struct{ Name, Version string }
 	if err := json.Unmarshal(manifest, &m); err != nil {
 		return nil, fmt.Errorf("manifest.json: %w", err)
@@ -48,13 +62,43 @@ func New(manifest, tools []byte, runs map[string]Run) (*mcp.Server, error) {
 	if len(defs) != len(runs) {
 		return nil, fmt.Errorf("tools.json describes %d tools and %d are written", len(defs), len(runs))
 	}
+	// A tool that names a page the bundle does not have opens nothing, and a
+	// page no tool names is never shown.
+	named := map[string]bool{}
+	for _, d := range defs {
+		if ui, ok := d.Meta["ui"].(map[string]any); ok {
+			if uri, _ := ui["resourceUri"].(string); uri != "" {
+				named[uri] = true
+			}
+		}
+	}
+	given := map[string]bool{}
+	for _, p := range pages {
+		if !named[p.URI] {
+			return nil, fmt.Errorf("the page %s is named by no tool", p.URI)
+		}
+		given[p.URI] = true
+	}
+	for uri := range named {
+		if !given[uri] {
+			return nil, fmt.Errorf("a tool names the page %s, which is not given", uri)
+		}
+	}
 	s := mcp.NewServer(&mcp.Implementation{Name: m.Name, Version: m.Version}, nil)
+	for _, p := range pages {
+		html := p.HTML
+		s.AddResource(&mcp.Resource{URI: p.URI, Name: p.URI, MIMEType: AppMIME},
+			func(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+				return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{
+					{URI: req.Params.URI, MIMEType: AppMIME, Text: html}}}, nil
+			})
+	}
 	for _, d := range defs {
 		run, ok := runs[d.Name]
 		if !ok {
 			return nil, fmt.Errorf("tools.json describes %q, which is not written", d.Name)
 		}
-		s.AddTool(&mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema},
+		s.AddTool(&mcp.Tool{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema, Meta: d.Meta},
 			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 				text, err := run(ctx, req.Params.Arguments)
 				if err != nil {
@@ -69,8 +113,8 @@ func New(manifest, tools []byte, runs map[string]Run) (*mcp.Server, error) {
 
 // Main serves a bundle's tools over standard input and output until the host
 // closes them.
-func Main(manifest, tools []byte, runs map[string]Run) {
-	s, err := New(manifest, tools, runs)
+func Main(manifest, tools []byte, runs map[string]Run, pages ...Page) {
+	s, err := New(manifest, tools, runs, pages...)
 	if err != nil {
 		log.Fatal(err)
 	}

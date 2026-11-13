@@ -119,13 +119,16 @@ words, split and join lines, pick language and voice (hearing a sample of each),
 Send will speak and cost. Works with no script (the operator writes it there) and with a script
 not spoken yet (lengths are then a guess, shown dashed).
 
-- In a host with MCP Apps the tool brings the page. Elsewhere the server serves it on
-  `127.0.0.1` and returns the link. Which one: `user_config.review`.
-- Returns what to tell the operator, and that the turn ends here.
+- In a host with MCP Apps the tool brings the page: `_meta.ui.resourceUri` is
+  `ui://voice-over/review`, served as `text/html;profile=mcp-app`. **Built.** Elsewhere the
+  server serves it on `127.0.0.1` and returns the link; which one, `user_config.review`. Not
+  built yet.
+- Returns what to tell the operator, and that the turn ends here. Its result stays short: a host
+  keeps the whole result of a call that opened a page.
 
 ### `voiceover_save_review {video, lines, voice, model, language?}` — for the page only
 
-What Send calls. Not sent to the model. Writes `script.json` with every line where the operator
+What Send calls. Not sent to the model (`_meta.ui.visibility: ["app"]`). Writes `script.json` with every line where the operator
 left it, and the voice into `project.json`. With a `language`, notes a translation owed.
 
 The page then sends the conversation one message: how many lines, what is to be spoken and what
@@ -136,8 +139,16 @@ it costs, and what the model does next:
 - a language → translate every line's `text`, keep every `at`, call `voiceover_script`, then
   render and review.
 
-(The page loads its screenshots and speech through further page-only calls. Their shape is
-settled when the page is built.)
+The message is the tool's own answer, so its words are the server's. **Built.**
+
+### `voiceover_review_data {video}` — for the page only
+
+Everything the page shows, made from the project as it is: the video's length, a screenshot every
+30 seconds (fewer for a video over an hour, at most 120), the voices of the two models with their
+prices and a sample of each, the languages, the pace and the most characters a line may have, and
+each line, with its real length and its speech as MP3 when it is spoken in the voice chosen. All
+of it, base64 included, comes to at most 15 MB: the speech takes the best quality that fits half,
+and the screenshots are made smaller together until they fit the rest. **Built.**
 
 ## What the server offers besides tools
 

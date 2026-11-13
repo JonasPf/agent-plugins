@@ -22,7 +22,12 @@ is a signal. Fix the cause.
   description; a test holds the two to each other. Conversations name tools,
   so a name never changes. A description changes only with its eval cases
   (`evals/<tool>.json`), which are put to a real model by the agent's eval
-  runner.
+  runner. A tool only a page calls (`_meta.ui.visibility: ["app"]`) has
+  none: a model is never shown it.
+- **A page is an MCP App.** A tool names it under `_meta.ui.resourceUri` in
+  `tools.json`, and the bundle hands it to the server as a `serve.Page`; a
+  page no tool names, or a name with no page, is refused. A page gets its data
+  through tool calls, and has no network and no origin.
 - **A failure is a result.** A tool returns an error the model can act on; it
   never ends the server. Say what went wrong and what to do next.
 - **No state between calls, no host assumed.** See the README.

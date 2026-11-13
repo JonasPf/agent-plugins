@@ -19,6 +19,10 @@ var runs = map[string]serve.Run{
 	"voiceover_transcribe": transcribe,
 	"voiceover_script":     script,
 	"voiceover_render":     renderVideo,
+	// The review page, and the two tools only it calls.
+	"voiceover_review":      review,
+	"voiceover_review_data": reviewData,
+	"voiceover_save_review": saveReview,
 }
 
-func main() { serve.Main(manifest, tools, runs) }
+func main() { serve.Main(manifest, tools, runs, pages...) }
