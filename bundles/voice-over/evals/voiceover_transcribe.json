@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "name": "transcribes a narrated recording, giving the names it will use as terms",
+      "prompt": "demo.mov is a screen recording where I walk through our Blockdaemon integration and the PII check. Transcribe it, I want to put a voice-over on it.",
+      "tools": [
+        "voiceover_transcribe"
+      ],
+      "expect": {
+        "tool": "voiceover_transcribe",
+        "args_match": {
+          "video": "^demo\\.mov$",
+          "terms": "(?i)blockdaemon"
+        }
+      }
+    },
+    {
+      "name": "says the language when the request does",
+      "prompt": "Transkribiere bitte vortrag.mp4, ich spreche darin Deutsch.",
+      "tools": [
+        "voiceover_transcribe"
+      ],
+      "expect": {
+        "tool": "voiceover_transcribe",
+        "args_match": {
+          "video": "^vortrag\\.mp4$",
+          "language": "(?i)^(de|deu|ger|german|deutsch)$"
+        }
+      }
+    }
+  ]
+}

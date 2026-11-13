@@ -49,7 +49,7 @@ Reads the video and writes down what is said in it, with times.
   The model sets `long` only after the operator agreed.
 - A long recording is sent in parts of 40 minutes and the times are joined by the server.
 - Default model `openai/whisper-large-v3-turbo`. A model that returns no times, or one block for
-  the whole recording, is refused with that reason rather than used.
+  the whole recording, is refused with that reason rather than used. **Built.**
 
 ### `voiceover_frames {video, at?: [seconds]}`
 
@@ -148,6 +148,7 @@ settled when the page is built.)
 |---|---|
 | `openrouter_api_key` | sensitive. The server's own key, reaching it as `VOICEOVER_OPENROUTER_KEY`. The server never reads `OPENROUTER_API_KEY`, so it cannot pick up a host's key by accident. Never logged, never in a result |
 | `ffmpeg_path` | optional. Otherwise the ffmpeg in the bundle, then the one on `PATH` |
+| `openrouter_url` | optional. The gateway's address, reaching the server as `VOICEOVER_OPENROUTER_URL`; empty is OpenRouter's own |
 | `review` | `auto` (default), `apps`, `browser` |
 | `backend`, `local_models` | later, with the local backends |
 

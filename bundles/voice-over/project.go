@@ -41,6 +41,17 @@ func (p project) folder(name string) (string, error) {
 	return dir, nil
 }
 
+// setting is a variable the host fills from the bundle's settings. A host
+// that was given no value may leave the placeholder it would have replaced,
+// and a placeholder is not a value.
+func setting(name string) string {
+	v := strings.TrimSpace(os.Getenv(name))
+	if strings.HasPrefix(v, "${") {
+		return ""
+	}
+	return v
+}
+
 func here() string {
 	d, err := os.Getwd()
 	if err != nil {

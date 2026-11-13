@@ -21,7 +21,7 @@ type ffmpeg struct {
 
 // findFFmpeg looks where the operator said, then in the bundle, then on PATH.
 func findFFmpeg() (ffmpeg, error) {
-	if set := strings.TrimSpace(os.Getenv("VOICEOVER_FFMPEG")); set != "" {
+	if set := setting("VOICEOVER_FFMPEG"); set != "" {
 		if !runnable(set) {
 			return ffmpeg{}, fmt.Errorf("the ffmpeg set in the bundle's settings, %s, is not a program that can be run: correct the path or clear it", set)
 		}
