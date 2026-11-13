@@ -14,7 +14,7 @@ MCP server.
 | `web-fetch` | `web_fetch` | network |
 | `web-search` | `web_search` | a [Tavily](https://tavily.com) API key, set in the bundle's settings |
 | `web-browse` | `web_browse` | Linux, with chromium at `/usr/bin/chromium` |
-| `voice-over` | `voiceover_frames`, `voiceover_transcribe`, `voiceover_script`, `voiceover_render`, `voiceover_review`, and more to come: [its contract](bundles/voice-over/CONTRACT.md) | an [OpenRouter](https://openrouter.ai) API key, set in the bundle's settings; nothing else: it carries its own ffmpeg (LGPL, built from source by [`ffmpeg/build.sh`](ffmpeg/build.sh), its source in each release); for the review page, a host that shows MCP Apps, or one that keeps the server running for a link on this machine |
+| [`voice-over`](bundles/voice-over/README.md) | `voiceover_frames`, `voiceover_transcribe`, `voiceover_script`, `voiceover_render`, `voiceover_review`: [its contract](bundles/voice-over/CONTRACT.md), and [how to install it](bundles/voice-over/README.md) in Claude Code, Codex and OpenCode | an [OpenRouter](https://openrouter.ai) API key, set in the bundle's settings; nothing else: it carries its own ffmpeg (LGPL, built from source by [`ffmpeg/build.sh`](ffmpeg/build.sh), its source in each release); for the review page, a host that shows MCP Apps, or one that keeps the server running for a link on this machine |
 
 A bundle is the unit of permission: tools that need the same things live
 together, and a tool that needs more has a bundle of its own.
