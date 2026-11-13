@@ -9,6 +9,12 @@
 //
 //	go run ./cmd/pack -skill researching -version 0.1.0 -out dist
 //
+// With -bin DIR the bundle carries programs of its own beside its server: the
+// files in DIR/<os>-<arch>/ go under bin/ in the bundle for that platform, as
+// voice-over carries its ffmpeg (ffmpeg/build.sh makes them).
+//
+//	go run ./cmd/pack -bundle voice-over -bin dist/ffmpeg -out dist
+//
 // The file is <bundle>-<version>-<os>-<arch>.mcpb. Its manifest is the one in
 // the repository with compatibility.platforms set to the platform it was built
 // for, because the server inside runs on no other.
@@ -36,6 +42,7 @@ func main() {
 	goos := flag.String("os", "", "linux or darwin; empty builds every platform the bundle runs on")
 	goarch := flag.String("arch", "", "amd64 or arm64")
 	out := flag.String("out", "dist", "where the .mcpb files go")
+	bin := flag.String("bin", "", "a folder with one folder per platform, <os>-<arch>, of programs the bundle carries under bin/")
 	flag.Parse()
 	if *skill != "" {
 		path, err := PackSkill(".", *skill, *version, *out)
@@ -55,7 +62,7 @@ func main() {
 		targets = [][2]string{{*goos, *goarch}}
 	}
 	for _, t := range targets {
-		path, err := Pack(".", *bundle, t[0], t[1], *out)
+		path, err := Pack(".", *bundle, t[0], t[1], *out, *bin)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "pack:", err)
 			os.Exit(1)
@@ -67,8 +74,9 @@ func main() {
 }
 
 // Pack builds bundle for one platform and returns the file it wrote, or ""
-// when the bundle's manifest says it does not run there.
-func Pack(root, bundle, goos, goarch, out string) (string, error) {
+// when the bundle's manifest says it does not run there. bin, if not empty,
+// holds the programs it carries, one folder per platform.
+func Pack(root, bundle, goos, goarch, out, bin string) (string, error) {
 	dir := filepath.Join(root, "bundles", bundle)
 	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
 	if err != nil {
@@ -143,6 +151,33 @@ func Pack(root, bundle, goos, goarch, out string) (string, error) {
 			return "", err
 		}
 		entries = append(entries, entry{"evals/" + filepath.Base(e), 0o644, body})
+	}
+	if bin != "" {
+		// A bundle given programs to carry is never packed without them: it
+		// would install, and fail at its first call.
+		here := filepath.Join(bin, goos+"-"+goarch)
+		files, err := os.ReadDir(here)
+		if err != nil || len(files) == 0 {
+			return "", fmt.Errorf("%s: no programs for %s-%s in %s", bundle, goos, goarch, bin)
+		}
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			info, err := file.Info()
+			if err != nil {
+				return "", err
+			}
+			body, err := os.ReadFile(filepath.Join(here, file.Name()))
+			if err != nil {
+				return "", err
+			}
+			mode := os.FileMode(0o644)
+			if info.Mode()&0o111 != 0 {
+				mode = 0o755
+			}
+			entries = append(entries, entry{"bin/" + file.Name(), mode, body})
+		}
 	}
 	z := zip.NewWriter(f)
 	for _, file := range entries {

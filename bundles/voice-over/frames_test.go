@@ -14,6 +14,17 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// fullFFmpeg is the ffmpeg the tests make their videos and sounds with, which
+// needs what the bundle's own does not: test patterns, tones, H.264. It is
+// VOICEOVER_TEST_FFMPEG where that is set, so a run can put the ffmpeg the
+// bundle carries first on PATH, and the one on PATH otherwise.
+func fullFFmpeg() string {
+	if p := os.Getenv("VOICEOVER_TEST_FFMPEG"); p != "" {
+		return p
+	}
+	return "ffmpeg"
+}
+
 // bands makes a video whose every second can be checked: solid colours, one
 // after the other, each for so many seconds, with a tone when sound is asked
 // for. Tests make their own videos; none is kept in the repository.
@@ -42,7 +53,7 @@ func bands(t *testing.T, path string, sound bool, parts ...string) {
 	// One keyframe for the whole video, so a frame found by its keyframe
 	// alone would be the first colour whatever time was asked for.
 	args = append(args, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-g", "600", "-preset", "ultrafast", path)
-	if out, err := exec.Command("ffmpeg", append([]string{"-y", "-hide_banner", "-loglevel", "error"}, args...)...).CombinedOutput(); err != nil {
+	if out, err := exec.Command(fullFFmpeg(), append([]string{"-y", "-hide_banner", "-loglevel", "error"}, args...)...).CombinedOutput(); err != nil {
 		t.Fatalf("could not make the test's video: %v\n%s", err, out)
 	}
 }

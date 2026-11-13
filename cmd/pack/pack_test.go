@@ -108,7 +108,7 @@ func readJSON(t *testing.T, path string, v any) {
 // each tool's eval cases, so a host that can put them to a model has them.
 func TestABundleIsPackedAsAManifestItsServerAndItsEvalCases(t *testing.T) {
 	out := t.TempDir()
-	path, err := Pack(root, "clock", runtime.GOOS, runtime.GOARCH, out)
+	path, err := Pack(root, "clock", runtime.GOOS, runtime.GOARCH, out, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestABundleIsPackedAsAManifestItsServerAndItsEvalCases(t *testing.T) {
 
 // A bundle that says it runs on one system is not built for another.
 func TestABundleIsNotPackedForAPlatformItDoesNotRunOn(t *testing.T) {
-	path, err := Pack(root, "web-browse", "darwin", "arm64", t.TempDir())
+	path, err := Pack(root, "web-browse", "darwin", "arm64", t.TempDir(), "")
 	if err != nil || path != "" {
 		t.Errorf("packed %q (%v), want nothing for a platform the manifest leaves out", path, err)
 	}
@@ -200,5 +200,51 @@ func TestEverySkillIsNamedForItsFolder(t *testing.T) {
 	}
 	if _, err := PackSkill(root, "no-such-skill", "1.0.0", t.TempDir()); err == nil {
 		t.Error("packing a skill that is not there was not an error")
+	}
+}
+
+// "A bundle can carry programs of its own beside its server, such as the
+// ffmpeg voice-over runs: what the folder holds for the bundle's platform goes
+// under bin/, executable as it was, and a platform the folder has nothing for
+// is refused rather than packed without them."
+func TestABundleCarriesTheProgramsGivenForItsPlatform(t *testing.T) {
+	bin := t.TempDir()
+	here := filepath.Join(bin, runtime.GOOS+"-"+runtime.GOARCH)
+	if err := os.MkdirAll(here, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(here, "ffmpeg"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(here, "LICENSE.ffmpeg.txt"), []byte("LGPL"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path, err := Pack(root, "clock", runtime.GOOS, runtime.GOARCH, t.TempDir(), bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, err := zip.OpenReader(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer z.Close()
+	files := map[string]*zip.File{}
+	for _, f := range z.File {
+		files[f.Name] = f
+	}
+	if files["bin/ffmpeg"] == nil || files["bin/ffmpeg"].Mode()&0o111 == 0 {
+		t.Errorf("bin/ffmpeg is missing or not executable: %v", z.File)
+	}
+	if lic := files["bin/LICENSE.ffmpeg.txt"]; lic == nil || lic.Mode()&0o111 != 0 {
+		t.Errorf("the licence is missing beside it, or executable: %v", z.File)
+	}
+	for _, p := range Platforms {
+		if p[0] == runtime.GOOS && p[1] == runtime.GOARCH {
+			continue
+		}
+		if _, err := Pack(root, "clock", p[0], p[1], t.TempDir(), bin); err == nil || !strings.Contains(err.Error(), p[0]+"-"+p[1]) {
+			t.Errorf("packing for %s/%s with nothing given for it: %v, want a refusal naming the platform", p[0], p[1], err)
+		}
+		break
 	}
 }

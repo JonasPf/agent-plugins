@@ -1,1 +1,3 @@
 dist/
+# The ffmpeg voice-over carries, built once for its tests (Taskfile test:voice-over).
+.cache/

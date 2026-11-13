@@ -25,7 +25,24 @@ tasks:
 
   test:
     desc: Run every test, under the race detector
-    cmds: [go test -race ./...]
+    cmds:
+      - go test -race $(go list ./... | grep -v /bundles/voice-over$)
+      - task: test:voice-over
+
+  # voice-over's tests run with the ffmpeg the bundle carries first on PATH,
+  # so a filter or codec the bundle uses and its ffmpeg leaves out fails here.
+  # The tests make their videos with the full ffmpeg already on PATH. The
+  # bundle's is built once per version of ffmpeg/build.sh into .cache/ffmpeg,
+  # or taken from VOICEOVER_FFMPEG_DIR where CI has built it.
+  test:voice-over:
+    desc: Run voice-over's tests with the ffmpeg it carries
+    cmds:
+      - |
+        set -e
+        full="$(command -v ffmpeg)"
+        bin="${VOICEOVER_FFMPEG_DIR:-.cache/ffmpeg/$(cksum ffmpeg/build.sh | cut -d' ' -f1)-$(uname -s)-$(uname -m)}"
+        [ -x "$bin/ffmpeg" ] || sh ffmpeg/build.sh "$bin"
+        VOICEOVER_TEST_FFMPEG="$full" PATH="$(cd "$bin" && pwd):$PATH" go test -race ./bundles/voice-over/
 
   # The scripts a skill carries, on real video. Needs python3 and ffmpeg 8.
   test:skills:

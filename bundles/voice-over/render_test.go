@@ -45,7 +45,7 @@ func speaker(t *testing.T, fail map[string]int) http.HandlerFunc {
 		if _, err := fmt.Sscanf(body.Input, "tone %g %g", &hz, &seconds); err != nil {
 			hz, seconds = 330, 1
 		}
-		wav, err := exec.Command("ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi",
+		wav, err := exec.Command(fullFFmpeg(), "-hide_banner", "-loglevel", "error", "-f", "lavfi",
 			"-i", fmt.Sprintf("sine=f=%g:d=%g", hz, seconds), "-ac", "1", "-ar", "24000", "-f", "wav", "-").Output()
 		if err != nil {
 			t.Errorf("could not make the tone: %v", err)
@@ -155,7 +155,7 @@ func TestRenderCutsALineTheNextOneStartsOn(t *testing.T) {
 	}
 
 	out := filepath.Join(dir, "clip.voiceover.mp4")
-	said, _ := exec.Command("ffmpeg", "-hide_banner", "-i", out).CombinedOutput()
+	said, _ := exec.Command(fullFFmpeg(), "-hide_banner", "-i", out).CombinedOutput()
 	m := regexp.MustCompile(`Duration: 00:00:(\d+\.\d+)`).FindStringSubmatch(string(said))
 	if m == nil {
 		t.Fatalf("no video was written at %s:\n%s", out, said)
