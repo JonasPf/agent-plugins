@@ -61,14 +61,14 @@
     "openrouter_api_key": {
       "type": "string",
       "title": "OpenRouter API key",
-      "description": "The key this bundle transcribes and speaks with, at openrouter.ai. It is its own: the bundle never uses the host's. Without it, transcribing runs on this machine (see Backend) and speaking does not work yet.",
+      "description": "The key this bundle transcribes and speaks with, at openrouter.ai. It is its own: the bundle never uses the host's. Without it, transcribing and speaking run on this machine (see Backend).",
       "sensitive": true,
       "required": false
     },
     "backend": {
       "type": "string",
       "title": "Backend",
-      "description": "Where transcribing runs: auto (OpenRouter when a key is set, else this machine), openrouter, or local (this machine, which downloads about 520 MB of programs and models into the user's cache on first use, and needs macOS on Apple silicon or Linux). Leave empty for auto.",
+      "description": "Where transcribing and speaking run: auto (OpenRouter when a key is set, else this machine), openrouter, or local (this machine, in English voices only, which downloads about 520 MB of programs and models for transcribing and 150 MB for speaking into the user's cache on first use, and needs macOS on Apple silicon or Linux). Leave empty for auto.",
       "required": false
     },
     "openrouter_url": {

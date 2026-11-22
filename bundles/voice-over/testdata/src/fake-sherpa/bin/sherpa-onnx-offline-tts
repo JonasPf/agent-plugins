@@ -1,0 +1,14 @@
+#!/bin/sh
+# Stands in for sherpa-onnx's speech program in tests: notes how it was
+# called, and speaks a line "tone <hz> <seconds>" as that tone, at Kokoro's
+# 24 kHz, made by the test's own ffmpeg (the bundle's has no tone source).
+for a; do printf '%s\n' "$a"; done >> tts-args.txt
+echo "=====" >> tts-args.txt
+out=
+for a; do
+  case $a in --output-filename=*) out=${a#--output-filename=} ;; esac
+  text=$a
+done
+hz=330 secs=1
+case $text in "tone "*) set -- $text; hz=$2 secs=$3 ;; esac
+"${VOICEOVER_TEST_FFMPEG:-ffmpeg}" -hide_banner -loglevel error -y -f lavfi -i "sine=f=$hz:d=$secs" -ac 1 -ar 24000 "$out"

@@ -86,7 +86,7 @@ func renderVideo(ctx context.Context, raw json.RawMessage) (string, error) {
 			return "", fmt.Errorf("line %d starts at %.1f s, after the video's end at %.1f s: place it again with voiceover_script", i+1, l.At, c.seconds)
 		}
 	}
-	backend, err := newOpenRouter()
+	backend, err := newSpeaker()
 	if err != nil {
 		return "", err
 	}
@@ -107,6 +107,10 @@ func renderVideo(ctx context.Context, raw json.RawMessage) (string, error) {
 		return "", err
 	}
 
+	note, err := backend.Ready(ctx)
+	if err != nil {
+		return "", err
+	}
 	paths, now, cost, err := speakAll(ctx, backend, p, lines, v)
 	if err != nil {
 		return "", err
@@ -150,6 +154,7 @@ func renderVideo(ctx context.Context, raw json.RawMessage) (string, error) {
 	}
 
 	var b strings.Builder
+	b.WriteString(note)
 	fmt.Fprintf(&b, "Wrote %s: %.1f s, the video's picture as it was with the voice-over as its sound.\n", shown(out), made.seconds)
 	fmt.Fprintf(&b, "Spoken by %s, %s, voice %s: %s spoken now, %d kept, %s.\n",
 		backend.Name(), v.Model, v.Name, count(now, "line"), len(lines)-now, cost)

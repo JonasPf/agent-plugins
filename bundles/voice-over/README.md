@@ -10,8 +10,8 @@ It is one MCP server with its own ffmpeg (`bin/ffmpeg`: FFmpeg, LGPL 2.1 or late
 [`ffmpeg/build.sh`](../../ffmpeg/build.sh); `bin/SOURCE.ffmpeg.txt` says how, and each release
 carries the source). It needs nothing installed beside it but an
 [OpenRouter](https://openrouter.ai) API key, which it uses for transcription and speech, and
-which it reads only from its own setting. Without a key it transcribes on the machine itself:
-see `VOICEOVER_BACKEND` below.
+which it reads only from its own setting. Without a key it transcribes and speaks on the machine
+itself: see `VOICEOVER_BACKEND` below.
 
 ## Get it
 
@@ -38,8 +38,8 @@ They reach the server as environment variables.
 
 | Variable | |
 |---|---|
-| `VOICEOVER_OPENROUTER_KEY` | The OpenRouter API key. Without it transcription runs on this machine, and the tools that speak say a key is needed. |
-| `VOICEOVER_BACKEND` | Where transcription runs: `auto` (the default: OpenRouter with a key, this machine without), `openrouter`, or `local`. On this machine it runs [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 1.13.8 with NVIDIA's [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (CC-BY-4.0, 25 European languages, found by itself; `language` and `terms` are not used) and Silero VAD. They are downloaded on first use, about 520 MB from sherpa-onnx's releases, checked against pinned digests, into the user's cache folder (`~/Library/Caches/voice-over` on macOS, `~/.cache/voice-over` on Linux). macOS on Apple silicon and Linux with glibc only. The model is 622 MB unpacked: expect it to take a gigabyte of memory or more. |
+| `VOICEOVER_OPENROUTER_KEY` | The OpenRouter API key. Without it transcription and speech run on this machine. |
+| `VOICEOVER_BACKEND` | Where transcription and speech run: `auto` (the default: OpenRouter with a key, this machine without), `openrouter`, or `local`. On this machine it runs [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 1.13.8: to transcribe, NVIDIA's [Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) (CC-BY-4.0, 25 European languages, found by itself; `language` and `terms` are not used) and Silero VAD, about 520 MB; to speak, [Kokoro 82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0) in its 28 English voices, `af_heart` by default, free, about 150 MB, with no samples on the review page yet and no other language to translate into. They are downloaded on first use from sherpa-onnx's releases, checked against pinned digests, into the user's cache folder (`~/Library/Caches/voice-over` on macOS, `~/.cache/voice-over` on Linux). macOS on Apple silicon and Linux with glibc only. The model is 622 MB unpacked: expect it to take a gigabyte of memory or more. |
 | `VOICEOVER_REVIEW` | How the review page is shown: `auto` (the default), `apps` or `browser`. |
 | `VOICEOVER_FFMPEG` | Another ffmpeg to use instead of the one in the bundle. |
 | `VOICEOVER_OPENROUTER_URL` | Another address for the gateway. |

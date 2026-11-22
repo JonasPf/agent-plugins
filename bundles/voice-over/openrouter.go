@@ -76,6 +76,13 @@ func (o *openRouter) Name() string                          { return "OpenRouter
 func (o *openRouter) Model() string                         { return defaultTranscriber }
 func (o *openRouter) Ready(context.Context) (string, error) { return "", nil }
 
+// Languages are those both offered models were tried in, every line spoken
+// and read back word for word by Whisper, on 2026-10-31.
+func (o *openRouter) Languages() [][2]string {
+	return [][2]string{{"en", "English"}, {"de", "German"}, {"es", "Spanish"}, {"fr", "French"},
+		{"it", "Italian"}, {"nl", "Dutch"}, {"pt", "Portuguese"}}
+}
+
 // call sends one request, waiting out a gateway that says to slow down.
 func (o *openRouter) call(ctx context.Context, method, path string, body any) (*http.Response, error) {
 	var payload []byte
@@ -239,7 +246,8 @@ func (o *openRouter) Voices(ctx context.Context) ([]Voice, error) {
 		// a dollar, so $4 a million reads as 4 and not 3.9999999999999996.
 		per := math.Round(perChar*1e12) / 1e6
 		for _, v := range m.Voices {
-			out = append(out, Voice{Name: v, Model: m.ID, ModelName: m.Name, PerMillion: per})
+			out = append(out, Voice{Name: v, Model: m.ID, ModelName: m.Name, PerMillion: per,
+				Default: m.ID == defaultSpeech && v == defaultVoice})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

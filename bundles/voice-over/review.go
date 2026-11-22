@@ -34,11 +34,6 @@ var samplesJSON []byte
 
 var pages = []serve.Page{{URI: reviewURI, HTML: reviewPage}}
 
-// languages are those both models were tried in, every line spoken and read
-// back word for word by Whisper, on 2026-10-31.
-var languages = [][2]string{{"en", "English"}, {"de", "German"}, {"es", "Spanish"}, {"fr", "French"},
-	{"it", "Italian"}, {"nl", "Dutch"}, {"pt", "Portuguese"}}
-
 const (
 	shotEvery   = 30
 	mostShots   = 120
@@ -156,7 +151,7 @@ func reviewData(ctx context.Context, raw json.RawMessage) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	backend, err := newOpenRouter()
+	backend, err := newSpeaker()
 	if err != nil {
 		return "", err
 	}
@@ -175,7 +170,7 @@ func reviewData(ctx context.Context, raw json.RawMessage) (string, error) {
 	defer os.RemoveAll(scratch)
 
 	d := pageData{Video: filepath.Base(p.video), Duration: c.seconds, Model: v.Model, Voice: v.Name,
-		Languages: languages, Lines: make([]pageLine, len(lines)), Pace: wordsPerSecond, MaxChars: maxChars,
+		Languages: backend.Languages(), Lines: make([]pageLine, len(lines)), Pace: wordsPerSecond, MaxChars: maxChars,
 		Samples: samplesJSON}
 	for _, m := range offeredModels {
 		var g *voiceGroup
@@ -323,14 +318,18 @@ func saveReview(ctx context.Context, raw json.RawMessage) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	backend, err := newSpeaker()
+	if err != nil {
+		return "", err
+	}
 	language := ""
-	for _, l := range languages {
+	for _, l := range backend.Languages() {
 		if l[0] == args.Language {
 			language = l[1]
 		}
 	}
 	if args.Language != "" && language == "" {
-		return "", fmt.Errorf("%q is not a language the voices were tried in", args.Language)
+		return "", fmt.Errorf("%q is not a language the voices of %s are spoken in", args.Language, backend.Name())
 	}
 	if len(args.Lines) == 0 {
 		return "", errors.New("no lines: write at least one line before Send")
@@ -340,10 +339,6 @@ func saveReview(ctx context.Context, raw json.RawMessage) (string, error) {
 		return "", err
 	}
 	c, err := ff.probe(ctx, p.video)
-	if err != nil {
-		return "", err
-	}
-	backend, err := newOpenRouter()
 	if err != nil {
 		return "", err
 	}

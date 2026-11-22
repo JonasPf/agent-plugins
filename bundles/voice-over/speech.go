@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // A backend is what writes a recording down and what speaks a line. The tools
@@ -26,8 +27,13 @@ type Transcriber interface {
 // Speaker speaks a line in a voice.
 type Speaker interface {
 	Name() string
-	// Voices is every voice there is to speak in.
+	// Ready gets the backend ready to speak, and says what that took.
+	Ready(ctx context.Context) (string, error)
+	// Voices is every voice there is to speak in; one is the default.
 	Voices(ctx context.Context) ([]Voice, error)
+	// Languages are those a script may be translated into for its voices,
+	// as code and name.
+	Languages() [][2]string
 	// Speak writes the line spoken to out plus the extension of what came
 	// back, and returns that path.
 	Speak(ctx context.Context, text string, v Voice, out string) (string, Cost, error)
@@ -56,6 +62,47 @@ type Voice struct {
 	Model      string
 	ModelName  string
 	PerMillion float64
+	// Default is the voice spoken in when none was chosen.
+	Default bool
+}
+
+// chosenBackend is where the bundle's settings say to transcribe and speak:
+// openrouter or local. The setting is auto, openrouter or local, and auto is
+// OpenRouter when a key is set and this machine when not.
+func chosenBackend() (string, error) {
+	switch b := strings.ToLower(setting(backendName)); b {
+	case "openrouter", "local":
+		return b, nil
+	case "", "auto":
+		if setting(keyName) != "" {
+			return "openrouter", nil
+		}
+		return "local", nil
+	default:
+		return "", fmt.Errorf("the backend setting (%s) is %q: it is auto, openrouter or local. The operator sets it in this bundle's settings", backendName, b)
+	}
+}
+
+func newTranscriber() (Transcriber, error) {
+	b, err := chosenBackend()
+	if err != nil {
+		return nil, err
+	}
+	if b == "local" {
+		return newLocal(helpers[platform], parakeet, silero)
+	}
+	return newOpenRouter()
+}
+
+func newSpeaker() (Speaker, error) {
+	b, err := chosenBackend()
+	if err != nil {
+		return nil, err
+	}
+	if b == "local" {
+		return newLocal(helpers[platform], kokoro)
+	}
+	return newOpenRouter()
 }
 
 // Cost is what a call cost, in dollars. A backend that cannot say leaves it

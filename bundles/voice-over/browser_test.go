@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -221,10 +222,14 @@ func newBrowser(t *testing.T) *browser {
 		args = append([]string{"--no-sandbox"}, args...)
 	}
 	cmd := exec.Command(path, args...)
+	// In a process group of its own, so the cleanup stops every process the
+	// browser starts. Killed alone, its helpers live on for a moment and
+	// write into the profile while the test deletes it, which fails the test.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("the browser did not start: %v", err)
 	}
-	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	t.Cleanup(func() { _ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); _ = cmd.Wait() })
 	var port []string
 	for i := 0; i < 200 && port == nil; i++ {
 		time.Sleep(50 * time.Millisecond)
