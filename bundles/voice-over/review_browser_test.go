@@ -521,8 +521,9 @@ func checkReviewPage(t *testing.T, b *browser, h reviewHost, dir string, direct 
 	b.click(".line:nth-of-type(2) .grip")
 	check("tapped again, it stops", b.inBool(`document.getElementById('sample').paused`))
 	b.key("Enter")
-	time.Sleep(200 * time.Millisecond)
-	check("Enter on the handle plays it too", sounding())
+	// Waited for, as the tap above is: a Bluetooth output takes longer than a
+	// fixed wait to start playing.
+	b.until("Enter on the handle plays it too", sounding)
 	b.key("Enter")
 	before2 := lines()[1].Time
 	b.drag(".line:nth-of-type(2) .grip", 3*scale, 0)

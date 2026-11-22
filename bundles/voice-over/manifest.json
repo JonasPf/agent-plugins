@@ -68,7 +68,7 @@
     "backend": {
       "type": "string",
       "title": "Backend",
-      "description": "Where transcribing and speaking run: auto (OpenRouter when a key is set, else this machine), openrouter, or local (this machine, in English voices only, which downloads about 520 MB of programs and models for transcribing and 150 MB for speaking into the user's cache on first use, and needs macOS on Apple silicon or Linux). Leave empty for auto.",
+      "description": "Where transcribing and speaking run: auto (OpenRouter when a key is set, else this machine), openrouter, or local (this machine, in English voices only, which downloads about 510 MB of programs and models for transcribing and 150 MB for speaking into the user's cache on first use, and needs macOS on Apple silicon or Linux). Leave empty for auto.",
       "required": false
     },
     "openrouter_url": {

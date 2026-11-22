@@ -189,21 +189,22 @@ func TestTranscribeWithNoKeyRunsOnThisMachine(t *testing.T) {
 	if res.Error {
 		t.Fatalf("voiceover_transcribe: %s", res.Text)
 	}
-	for _, want := range []string{"Downloaded", cache, "sherpa-onnx 1.13.8", "nvidia/parakeet-tdt-0.6b-v3", "Silero VAD v5",
-		"Transcribed on this machine", "CC-BY-4.0", "2 lines", "[0.00–2.50] So in this case", "[2.50–4.10] we use Blockdaemon."} {
+	for _, want := range []string{"Downloaded", cache, "sherpa-onnx 1.13.8", "nvidia/parakeet-tdt-0.6b-v3",
+		"Transcribed on this machine", "CC-BY-4.0", "2 lines", "[0.00–1.20] So in this case", "[2.50–4.10] we use Blockdaemon."} {
 		if !strings.Contains(res.Text, want) {
 			t.Errorf("the result does not say %q:\n%s", want, res.Text)
 		}
 	}
-	if got := mustRead(t, filepath.Join(dir, "clip.voiceover", "segments.txt")); got != "[0.00–2.50] So in this case\n[2.50–4.10] we use Blockdaemon.\n" {
+	// A phrase ends at a pause, and runs from its first word's start to its
+	// last word's end.
+	if got := mustRead(t, filepath.Join(dir, "clip.voiceover", "segments.txt")); got != "[0.00–1.20] So in this case\n[2.50–4.10] we use Blockdaemon.\n" {
 		t.Errorf("segments.txt = %q", got)
 	}
-	// The helper is given the model it was downloaded with, the voice
-	// detector that cuts the sound into phrases, and the sound as it reads
-	// it: 16-bit WAV, mono, 16 kHz.
+	// The helper is given the model it was downloaded with, and the sound as
+	// it reads it: 16-bit WAV, mono, 16 kHz.
 	args := mustRead(t, filepath.Join(dir, "helper-args.txt"))
 	for _, want := range []string{"--model-type=nemo_transducer", "--encoder=" + filepath.Join(cache, parakeet.name, "encoder.int8.onnx"),
-		"--tokens=" + filepath.Join(cache, parakeet.name, "tokens.txt"), "--silero-vad-model=" + filepath.Join(cache, silero.name, "silero_vad_v5.onnx")} {
+		"--tokens=" + filepath.Join(cache, parakeet.name, "tokens.txt")} {
 		if !strings.Contains(args, want+"\n") {
 			t.Errorf("the helper was not given %s:\n%s", want, args)
 		}
@@ -212,17 +213,17 @@ func TestTranscribeWithNoKeyRunsOnThisMachine(t *testing.T) {
 	if !strings.Contains(string(said), "pcm_s16le") || !strings.Contains(string(said), "16000 Hz, mono") {
 		t.Errorf("the helper was not given 16-bit WAV, mono at 16 kHz:\n%s", said)
 	}
-	left, _ := filepath.Glob(filepath.Join(dir, "clip.voiceover", "*.wav"))
-	if len(left) != 0 {
-		t.Errorf("the sound made for the helper was left in the project: %v", left)
+	left, _ := filepath.Glob(filepath.Join(dir, "clip.voiceover", "*"))
+	if len(left) != 2 {
+		t.Errorf("the project holds %v, want audio.m4a and segments.txt: what was made for the helper is left", left)
 	}
 
 	res = servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
 	if res.Error || strings.Contains(res.Text, "Downloaded") {
 		t.Errorf("a second call = %+v, want a transcript and no download", res)
 	}
-	if got, _ := d.asked(); len(got) != 3 {
-		t.Errorf("downloaded %d times over two calls, want the helper, the model and the detector once each: %v", len(got), got)
+	if got, _ := d.asked(); len(got) != 2 {
+		t.Errorf("downloaded %d times over two calls, want the helper and the model once each: %v", len(got), got)
 	}
 }
 

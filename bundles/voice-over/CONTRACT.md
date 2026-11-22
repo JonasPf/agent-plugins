@@ -51,11 +51,16 @@ Reads the video and writes down what is said in it, with times.
 - Default model `openai/whisper-large-v3-turbo`. A model that returns no times, or one block for
   the whole recording, is refused with that reason rather than used. **Built.**
 - **On this machine** (`backend` `local`, or `auto` with no key): sherpa-onnx 1.13.8's
-  `sherpa-onnx-vad-with-offline-asr`, with Silero VAD v5 cutting the sound into phrases and
-  `nvidia/parakeet-tdt-0.6b-v3` (int8, CC-BY-4.0) writing each down. The sound goes to it as
-  16-bit WAV, mono, 16 kHz, made beside `audio.m4a` and deleted after. `language` and `terms`
-  are not used: the model finds the language itself and takes no words to expect. Its cost is
-  nothing. **Built.**
+  `sherpa-onnx-offline` with `nvidia/parakeet-tdt-0.6b-v3` (int8, CC-BY-4.0), which gives every
+  token's start and length. The sound is cut into 16-bit WAV chunks of 30 s, mono, 16 kHz, each
+  overlapping the next by 2 s, eight to a run of the helper; a word in an overlap is taken from
+  the chunk where it is further from the edge. A line of `segments.txt` ends at a sentence's end,
+  at a pause of 0.6 s, or at a comma once it is 4 s long, and runs from its first word's start
+  to its last word's end. The chunks are made in the project folder and deleted after.
+  `language` and `terms` are not used: the model finds the language itself and takes no words
+  to expect. Its cost is nothing. **Built.** (The first version cut phrases with Silero VAD
+  through `sherpa-onnx-vad-with-offline-asr`: its phrases ran to 17 s, and it dropped the last
+  9 s of a 59 s recording.)
 - The helper and models are downloaded the first time they are needed, from sherpa-onnx's
   releases, checked against digests pinned in the code, and unpacked into
   `<user cache>/voice-over/`. The result says what was downloaded and where. A download cut off
