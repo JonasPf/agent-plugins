@@ -66,12 +66,13 @@ func withLocalModels(t *testing.T) (*downloads, string) {
 			url: srv.URL + "/" + file, sha256: hex.EncodeToString(sum[:]), size: int64(len(b))}
 	}
 	oldHelper, hadHelper := helpers[platform]
-	oldParakeet, oldSilero := parakeet, silero
+	oldParakeet, oldSilero, oldKokoro := parakeet, silero, kokoro
 	helpers[platform] = pinned("sherpa-onnx 1.13.8", "fake-sherpa.tar.bz2")
 	parakeet = pinned("nvidia/parakeet-tdt-0.6b-v3", "fake-parakeet.tar.bz2")
 	silero = pinned("Silero VAD v5", "silero_vad_v5.onnx")
+	kokoro = pinned("Kokoro 82M", "fake-kokoro.tar.bz2")
 	t.Cleanup(func() {
-		parakeet, silero = oldParakeet, oldSilero
+		parakeet, silero, kokoro = oldParakeet, oldSilero, oldKokoro
 		if hadHelper {
 			helpers[platform] = oldHelper
 		} else {
@@ -174,7 +175,7 @@ func TestMain(m *testing.M) {
 	for p, a := range helpers {
 		helpers[p] = nowhere(a)
 	}
-	parakeet, silero = nowhere(parakeet), nowhere(silero)
+	parakeet, silero, kokoro = nowhere(parakeet), nowhere(silero), nowhere(kokoro)
 	code := m.Run()
 	os.RemoveAll(cache)
 	os.Exit(code)

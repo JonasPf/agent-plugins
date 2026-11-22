@@ -61,7 +61,7 @@ Reads the video and writes down what is said in it, with times.
   `<user cache>/voice-over/`. The result says what was downloaded and where. A download cut off
   is carried on by the next call; one that does not match its digest is thrown away. sherpa-onnx
   stays at 1.13.8 because 2.0 drops every word missing from Kokoro's lexicon, numbers included
-  (k2-fsa/sherpa-onnx#4139), which matters once speech runs here too.
+  (k2-fsa/sherpa-onnx#4139), and the speech here needs those spoken.
 
 ### `voiceover_frames {video, at?: [seconds]}`
 
@@ -113,6 +113,12 @@ Speaks every line that has no speech yet, puts each at its moment, and writes
 
 - `voice`: a voice name. Default: the one in `project.json`, else `gareth` (HeyGen Turbo). One
   voice for the whole video. An unknown voice is refused with the list of those there are.
+- **On this machine** (`backend` `local`, or `auto` with no key): Kokoro 82M (int8, Apache-2.0)
+  through sherpa-onnx 1.13.8's `sherpa-onnx-offline-tts`, in its 28 English voices, `af_heart` by
+  default; an American voice with the US lexicon, a British one with the British, and a word in
+  neither spoken by espeak-ng's rules. One line at a time on every core, each a 24 kHz WAV. Kokoro
+  is downloaded on first use as the transcription models are. Free. The review page offers
+  English only, and has no samples of these voices yet. **Built.**
 - Lines are spoken several at a time; a 429 is waited out and only the missing lines are asked
   for again. A line that still fails is named, and the lines already spoken are kept, so the
   next call pays only for the rest.
@@ -181,7 +187,7 @@ and the screenshots are made smaller together until they fit the rest. **Built.*
 | `ffmpeg_path` | optional. Otherwise the ffmpeg in the bundle (`bin/ffmpeg`: FFmpeg 8.1.3, LGPL 2.1 or later, built by `ffmpeg/build.sh` with only what the tools use and no outside library; `bin/SOURCE.ffmpeg.txt` says how, and each release carries its source), then the one on `PATH` |
 | `openrouter_url` | optional. The gateway's address, reaching the server as `VOICEOVER_OPENROUTER_URL`; empty is OpenRouter's own |
 | `review` | `auto` (default), `apps`, `browser`; reaches the server as `VOICEOVER_REVIEW` |
-| `backend` | `auto` (default: OpenRouter when a key is set, else this machine), `openrouter`, `local`; reaches the server as `VOICEOVER_BACKEND`. Transcription only, for now: speech on this machine comes next |
+| `backend` | `auto` (default: OpenRouter when a key is set, else this machine), `openrouter`, `local`; reaches the server as `VOICEOVER_BACKEND`. It chooses for transcription and speech together |
 
 ## Every trap in the old skill, and where it went
 

@@ -161,38 +161,19 @@ func cutParts(ctx context.Context, ff ffmpeg, p project, audio string, seconds f
 	return parts, nil
 }
 
-// newTranscriber is the backend the bundle's settings choose: backend is
-// auto, openrouter or local, and auto is OpenRouter when a key is set and this
-// machine when not.
-func newTranscriber() (Transcriber, error) {
-	switch b := strings.ToLower(setting(backendName)); b {
-	case "openrouter":
-		return newOpenRouter()
-	case "local":
-		return newLocal()
-	case "", "auto":
-		if setting(keyName) != "" {
-			return newOpenRouter()
-		}
-		return newLocal()
-	default:
-		return nil, fmt.Errorf("the backend setting (%s) is %q: it is auto, openrouter or local. The operator sets it in this bundle's settings", backendName, b)
-	}
-}
-
 // tooLong is the refusal of a recording over the hour, with what speaking
 // it would cost in the default voice: the number the operator decides by.
 func tooLong(ctx context.Context, seconds float64) error {
 	chars := int(seconds * charsPerSecond)
 	price := "what that costs could not be read now"
-	s, err := newOpenRouter()
+	s, err := newSpeaker()
 	var vs []Voice
 	if err == nil {
-		vs, err = s.Voices(ctx)
+		vs, err = offered(ctx, s)
 	}
 	if err == nil {
 		for _, v := range vs {
-			if v.Model == defaultSpeech && v.Name == defaultVoice {
+			if v.Default {
 				price = fmt.Sprintf("about %s in the default voice, %s on %s at $%g per million characters",
 					dollars(float64(chars)*v.PerMillion/1e6), v.Name, v.ModelName, v.PerMillion)
 			}

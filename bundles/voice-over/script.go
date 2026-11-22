@@ -38,7 +38,7 @@ const (
 // one, good enough for most videos, and the one for when quality matters
 // more than price. Their voices' names do not overlap, so a voice's name is
 // enough to choose it by. The gateway lists dozens more.
-var offeredModels = []string{defaultSpeech, "elevenlabs/eleven-flash-v2.5"}
+var offeredModels = []string{defaultSpeech, "elevenlabs/eleven-flash-v2.5", localSpeech}
 
 var segmentLine = regexp.MustCompile(`^\[(\d+(?:\.\d+)?)\s*[–-]\s*(\d+(?:\.\d+)?)\]\s*(.*)$`)
 
@@ -85,7 +85,7 @@ func script(ctx context.Context, raw json.RawMessage) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	backend, err := newOpenRouter()
+	backend, err := newSpeaker()
 	if err != nil {
 		return "", err
 	}
@@ -238,11 +238,8 @@ func offered(ctx context.Context, s Speaker) ([]Voice, error) {
 
 // pick is the voice a name chooses, or the default when there is none.
 func pick(vs []Voice, name string) (Voice, error) {
-	if name == "" {
-		name = defaultVoice
-	}
 	for _, v := range vs {
-		if v.Name == name {
+		if v.Name == name || name == "" && v.Default {
 			return v, nil
 		}
 	}
