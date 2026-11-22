@@ -13,6 +13,11 @@ import (
 type Transcriber interface {
 	// Name is the backend, as a result names it.
 	Name() string
+	// Model is the model that writes it down, as a result names it.
+	Model() string
+	// Ready gets the backend ready to run, and says what that took: the local
+	// backend downloads what it runs on, the first time.
+	Ready(ctx context.Context) (string, error)
 	// Transcribe reads the audio file and returns its phrases, timed from the
 	// start of that file.
 	Transcribe(ctx context.Context, audio string, o TranscribeOptions) ([]Segment, Cost, error)

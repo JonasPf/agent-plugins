@@ -22,6 +22,8 @@ var (
 )
 
 const (
+	// backendName is the variable the host fills from the backend setting.
+	backendName = "VOICEOVER_BACKEND"
 	// charsPerSecond is what a narrator says in a second, in characters: a
 	// ten-minute video is about 6,000.
 	charsPerSecond = 10
@@ -67,13 +69,18 @@ func transcribe(ctx context.Context, raw json.RawMessage) (string, error) {
 		b.WriteString(noNarration("It has no sound"))
 		return b.String(), nil
 	}
-	backend, err := newOpenRouter()
+	backend, err := newTranscriber()
 	if err != nil {
 		return "", err
 	}
 	if c.seconds > longAfter && !args.Long {
-		return "", tooLong(ctx, backend, c.seconds)
+		return "", tooLong(ctx, c.seconds)
 	}
+	note, err := backend.Ready(ctx)
+	if err != nil {
+		return "", err
+	}
+	b.WriteString(note)
 
 	if err := os.MkdirAll(p.dir, 0o755); err != nil {
 		return "", fmt.Errorf("could not make %s: %v", shown(p.dir), err)
@@ -103,7 +110,7 @@ func transcribe(ctx context.Context, raw json.RawMessage) (string, error) {
 		}
 		if len(segs) == 1 && pt.seconds > oneBlockAfter {
 			return "", fmt.Errorf("%s gave %s of sound back as one block, and no line can be placed inside a block: "+
-				"nothing was saved. Transcribe with %s", defaultTranscriber, length(pt.seconds), defaultTranscriber)
+				"nothing was saved. Transcribe with %s", backend.Model(), length(pt.seconds), defaultTranscriber)
 		}
 		for _, s := range segs {
 			all = append(all, Segment{s.Start + pt.start, s.End + pt.start, s.Text})
@@ -118,7 +125,7 @@ func transcribe(ctx context.Context, raw json.RawMessage) (string, error) {
 	if err := os.WriteFile(out, []byte(lines.String()), 0o644); err != nil {
 		return "", err
 	}
-	fmt.Fprintf(&b, "Transcribed by %s, %s, %s.\n", backend.Name(), defaultTranscriber, cost)
+	fmt.Fprintf(&b, "Transcribed on %s, %s, %s.\n", backend.Name(), backend.Model(), cost)
 	if len(all) == 0 {
 		b.WriteString(noNarration("No words were heard in its sound"))
 		return b.String(), nil
@@ -154,12 +161,36 @@ func cutParts(ctx context.Context, ff ffmpeg, p project, audio string, seconds f
 	return parts, nil
 }
 
+// newTranscriber is the backend the bundle's settings choose: backend is
+// auto, openrouter or local, and auto is OpenRouter when a key is set and this
+// machine when not.
+func newTranscriber() (Transcriber, error) {
+	switch b := strings.ToLower(setting(backendName)); b {
+	case "openrouter":
+		return newOpenRouter()
+	case "local":
+		return newLocal()
+	case "", "auto":
+		if setting(keyName) != "" {
+			return newOpenRouter()
+		}
+		return newLocal()
+	default:
+		return nil, fmt.Errorf("the backend setting (%s) is %q: it is auto, openrouter or local. The operator sets it in this bundle's settings", backendName, b)
+	}
+}
+
 // tooLong is the refusal of a recording over the hour, with what speaking
 // it would cost in the default voice: the number the operator decides by.
-func tooLong(ctx context.Context, s Speaker, seconds float64) error {
+func tooLong(ctx context.Context, seconds float64) error {
 	chars := int(seconds * charsPerSecond)
 	price := "what that costs could not be read now"
-	if vs, err := s.Voices(ctx); err == nil {
+	s, err := newOpenRouter()
+	var vs []Voice
+	if err == nil {
+		vs, err = s.Voices(ctx)
+	}
+	if err == nil {
 		for _, v := range vs {
 			if v.Model == defaultSpeech && v.Name == defaultVoice {
 				price = fmt.Sprintf("about %s in the default voice, %s on %s at $%g per million characters",
