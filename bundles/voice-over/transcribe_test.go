@@ -150,12 +150,15 @@ func TestTranscribeRefusesOneBlockForAWholeRecording(t *testing.T) {
 	}
 }
 
-// "Without a key it says where the operator sets one, and writes nothing."
+// "Set to OpenRouter and without a key, it says where the operator sets one,
+// downloads nothing, and writes nothing."
 func TestTranscribeWithoutAKeySaysWhereToSetOne(t *testing.T) {
 	dir := t.TempDir()
 	servetest.InDir(t, dir)
 	bands(t, "clip.mov", true, "red:2")
 	t.Setenv(keyName, "")
+	t.Setenv(backendName, "openrouter")
+	d, _ := withLocalModels(t)
 	cs := servetest.Client(t, manifest, tools, runs, pages...)
 
 	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
@@ -164,6 +167,115 @@ func TestTranscribeWithoutAKeySaysWhereToSetOne(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "clip.voiceover")); err == nil {
 		t.Error("the project was started without a key to finish it")
+	}
+	if got, _ := d.asked(); len(got) != 0 {
+		t.Errorf("set to OpenRouter, it downloaded %v to run on this machine", got)
+	}
+}
+
+// "With no key and the backend left at auto, it transcribes on this machine:
+// it downloads its helper and model the first time, says so and where to, and
+// names the backend and model in the result. Nothing is sent anywhere."
+func TestTranscribeWithNoKeyRunsOnThisMachine(t *testing.T) {
+	dir := t.TempDir()
+	servetest.InDir(t, dir)
+	bands(t, "clip.mov", true, "red:3", "green:3")
+	t.Setenv(keyName, "")
+	t.Setenv(backendName, "")
+	d, cache := withLocalModels(t)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
+
+	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
+	if res.Error {
+		t.Fatalf("voiceover_transcribe: %s", res.Text)
+	}
+	for _, want := range []string{"Downloaded", cache, "sherpa-onnx 1.13.8", "nvidia/parakeet-tdt-0.6b-v3", "Silero VAD v5",
+		"Transcribed on this machine", "CC-BY-4.0", "2 lines", "[0.00–2.50] So in this case", "[2.50–4.10] we use Blockdaemon."} {
+		if !strings.Contains(res.Text, want) {
+			t.Errorf("the result does not say %q:\n%s", want, res.Text)
+		}
+	}
+	if got := mustRead(t, filepath.Join(dir, "clip.voiceover", "segments.txt")); got != "[0.00–2.50] So in this case\n[2.50–4.10] we use Blockdaemon.\n" {
+		t.Errorf("segments.txt = %q", got)
+	}
+	// The helper is given the model it was downloaded with, the voice
+	// detector that cuts the sound into phrases, and the sound as it reads
+	// it: 16-bit WAV, mono, 16 kHz.
+	args := mustRead(t, filepath.Join(dir, "helper-args.txt"))
+	for _, want := range []string{"--model-type=nemo_transducer", "--encoder=" + filepath.Join(cache, parakeet.name, "encoder.int8.onnx"),
+		"--tokens=" + filepath.Join(cache, parakeet.name, "tokens.txt"), "--silero-vad-model=" + filepath.Join(cache, silero.name, "silero_vad_v5.onnx")} {
+		if !strings.Contains(args, want+"\n") {
+			t.Errorf("the helper was not given %s:\n%s", want, args)
+		}
+	}
+	said, _ := exec.Command(fullFFmpeg(), "-hide_banner", "-i", filepath.Join(dir, "helper-input.wav")).CombinedOutput()
+	if !strings.Contains(string(said), "pcm_s16le") || !strings.Contains(string(said), "16000 Hz, mono") {
+		t.Errorf("the helper was not given 16-bit WAV, mono at 16 kHz:\n%s", said)
+	}
+	left, _ := filepath.Glob(filepath.Join(dir, "clip.voiceover", "*.wav"))
+	if len(left) != 0 {
+		t.Errorf("the sound made for the helper was left in the project: %v", left)
+	}
+
+	res = servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
+	if res.Error || strings.Contains(res.Text, "Downloaded") {
+		t.Errorf("a second call = %+v, want a transcript and no download", res)
+	}
+	if got, _ := d.asked(); len(got) != 3 {
+		t.Errorf("downloaded %d times over two calls, want the helper, the model and the detector once each: %v", len(got), got)
+	}
+}
+
+// "The backend setting chooses: openrouter, local, or auto, which is
+// OpenRouter when a key is set and this machine when not. Anything else is
+// refused, naming the three."
+func TestTheBackendSettingChoosesWhereToTranscribe(t *testing.T) {
+	dir := t.TempDir()
+	servetest.InDir(t, dir)
+	bands(t, "clip.mov", true, "red:2")
+	g := withGateway(t)
+	g.on("/audio/transcriptions", answer(200, `{"text":"hello","segments":[{"start":0,"end":1,"text":"hello"}],"usage":{"cost":0.0001}}`))
+	withLocalModels(t)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
+
+	t.Setenv(backendName, "local")
+	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
+	if res.Error || !strings.Contains(res.Text, "this machine") {
+		t.Errorf("set to local with a key: %+v, want it transcribed on this machine", res)
+	}
+	if n := len(g.asked("/audio/transcriptions")); n != 0 {
+		t.Errorf("set to local, the recording was sent to the gateway %d times", n)
+	}
+
+	t.Setenv(backendName, "Auto")
+	res = servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
+	if res.Error || !strings.Contains(res.Text, "OpenRouter") {
+		t.Errorf("auto with a key: %+v, want it transcribed by OpenRouter", res)
+	}
+
+	t.Setenv(backendName, "cloud")
+	res = servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
+	if !res.Error || !strings.Contains(res.Text, "auto, openrouter or local") {
+		t.Errorf("set to cloud: %+v, want a refusal naming the three settings", res)
+	}
+}
+
+// "Where no helper is built for the machine, auto with no key says there is
+// neither, and how to get a key in."
+func TestNoLocalBackendWhereNoHelperIsBuilt(t *testing.T) {
+	dir := t.TempDir()
+	servetest.InDir(t, dir)
+	bands(t, "clip.mov", true, "red:2")
+	t.Setenv(keyName, "")
+	t.Setenv(backendName, "")
+	old := platform
+	platform = "plan9/386"
+	t.Cleanup(func() { platform = old })
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
+
+	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"clip.mov"}`)
+	if !res.Error || !strings.Contains(res.Text, "plan9/386") || !strings.Contains(res.Text, "OpenRouter API key") {
+		t.Errorf("voiceover_transcribe = %+v, want a refusal naming the platform and the key", res)
 	}
 }
 

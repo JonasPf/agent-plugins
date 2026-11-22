@@ -50,6 +50,18 @@ Reads the video and writes down what is said in it, with times.
 - A long recording is sent in parts of 40 minutes and the times are joined by the server.
 - Default model `openai/whisper-large-v3-turbo`. A model that returns no times, or one block for
   the whole recording, is refused with that reason rather than used. **Built.**
+- **On this machine** (`backend` `local`, or `auto` with no key): sherpa-onnx 1.13.8's
+  `sherpa-onnx-vad-with-offline-asr`, with Silero VAD v5 cutting the sound into phrases and
+  `nvidia/parakeet-tdt-0.6b-v3` (int8, CC-BY-4.0) writing each down. The sound goes to it as
+  16-bit WAV, mono, 16 kHz, made beside `audio.m4a` and deleted after. `language` and `terms`
+  are not used: the model finds the language itself and takes no words to expect. Its cost is
+  nothing. **Built.**
+- The helper and models are downloaded the first time they are needed, from sherpa-onnx's
+  releases, checked against digests pinned in the code, and unpacked into
+  `<user cache>/voice-over/`. The result says what was downloaded and where. A download cut off
+  is carried on by the next call; one that does not match its digest is thrown away. sherpa-onnx
+  stays at 1.13.8 because 2.0 drops every word missing from Kokoro's lexicon, numbers included
+  (k2-fsa/sherpa-onnx#4139), which matters once speech runs here too.
 
 ### `voiceover_frames {video, at?: [seconds]}`
 
@@ -169,7 +181,7 @@ and the screenshots are made smaller together until they fit the rest. **Built.*
 | `ffmpeg_path` | optional. Otherwise the ffmpeg in the bundle (`bin/ffmpeg`: FFmpeg 8.1.3, LGPL 2.1 or later, built by `ffmpeg/build.sh` with only what the tools use and no outside library; `bin/SOURCE.ffmpeg.txt` says how, and each release carries its source), then the one on `PATH` |
 | `openrouter_url` | optional. The gateway's address, reaching the server as `VOICEOVER_OPENROUTER_URL`; empty is OpenRouter's own |
 | `review` | `auto` (default), `apps`, `browser`; reaches the server as `VOICEOVER_REVIEW` |
-| `backend`, `local_models` | later, with the local backends |
+| `backend` | `auto` (default: OpenRouter when a key is set, else this machine), `openrouter`, `local`; reaches the server as `VOICEOVER_BACKEND`. Transcription only, for now: speech on this machine comes next |
 
 ## Every trap in the old skill, and where it went
 

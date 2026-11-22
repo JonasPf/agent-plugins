@@ -72,7 +72,9 @@ func newOpenRouter() (*openRouter, error) {
 		client: &http.Client{Timeout: 10 * time.Minute}, costEvery: 3 * time.Second}, nil
 }
 
-func (o *openRouter) Name() string { return "OpenRouter" }
+func (o *openRouter) Name() string                          { return "OpenRouter" }
+func (o *openRouter) Model() string                         { return defaultTranscriber }
+func (o *openRouter) Ready(context.Context) (string, error) { return "", nil }
 
 // call sends one request, waiting out a gateway that says to slow down.
 func (o *openRouter) call(ctx context.Context, method, path string, body any) (*http.Response, error) {
