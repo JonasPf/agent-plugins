@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -103,6 +104,18 @@ func TestReviewOnThisMachineOffersEnglishOnly(t *testing.T) {
 	}
 	if got.Voice != "af_heart" || got.Model != localSpeech {
 		t.Errorf("voice %s on %s, want af_heart on %s", got.Voice, got.Model, localSpeech)
+	}
+	// Picking a voice plays it, as with OpenRouter's: an MP3 of each, kept
+	// in the bundle, so the page downloads nothing to play one.
+	for _, g := range got.Voices {
+		for _, v := range g.Voices {
+			if b, err := base64.StdEncoding.DecodeString(got.Samples[localSpeech][v]); err != nil || len(b) < 2 || b[0] != 0xff || b[1]&0xe0 != 0xe0 {
+				t.Errorf("%s has no sample the page can play: %d bytes, %v", v, len(b), err)
+			}
+		}
+	}
+	if len(got.Samples) != 1 {
+		t.Errorf("samples of %d models, want Kokoro's only: the page is sent none it cannot offer", len(got.Samples))
 	}
 	if len(got.Languages) != 1 || got.Languages[0] != [2]string{"en", "English"} {
 		t.Errorf("languages = %v, want English only", got.Languages)

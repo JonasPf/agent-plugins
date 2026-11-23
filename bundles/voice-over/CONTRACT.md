@@ -126,7 +126,7 @@ Speaks every line that has no speech yet, puts each at its moment, and writes
   default; an American voice with the US lexicon, a British one with the British, and a word in
   neither spoken by espeak-ng's rules. One line at a time on every core, each a 24 kHz WAV. Kokoro
   is downloaded on first use as the transcription models are. Free. The review page offers
-  English only, and has no samples of these voices yet. **Built.**
+  English only, and plays a sample of each voice, recorded by `record_samples.py`. **Built.**
 - Lines are spoken several at a time; a 429 is waited out and only the missing lines are asked
   for again. A line that still fails is named, and the lines already spoken are kept, so the
   next call pays only for the rest.
@@ -175,8 +175,8 @@ The message is the tool's own answer, so its words are the server's. **Built.**
 ### `voiceover_review_data {video}` — for the page only
 
 Everything the page shows, made from the project as it is: the video's length, a screenshot every
-30 seconds (fewer for a video over an hour, at most 120), the voices of the two models with their
-prices and a sample of each, the languages, the pace and the most characters a line may have, and
+30 seconds (fewer for a video over an hour, at most 120), the voices offered with their
+prices and a sample of each (and no other backend's samples), the languages, the pace and the most characters a line may have, and
 each line, with its real length and its speech, AAC in an MP4, when it is spoken in the voice chosen. All
 of it, base64 included, comes to at most 15 MB: the speech takes the best quality that fits half,
 and the screenshots are made smaller together until they fit the rest. **Built.**

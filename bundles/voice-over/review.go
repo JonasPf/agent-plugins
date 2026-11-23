@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/JonasPf/agent-plugins/internal/serve"
 )
@@ -26,11 +27,37 @@ const reviewURI = "ui://voice-over/review"
 //go:embed review.html
 var reviewPage string
 
-// samplesJSON is every offered voice saying "Hello World 1 2 3", as MP3 in
-// base64, by model and voice: what the page plays when a voice is picked.
+// samplesJSON is every voice of every backend saying "Hello World 1 2 3", as
+// MP3 in base64, by model and voice: what the page plays when a voice is
+// picked. record_samples.py records those of this machine.
 //
 //go:embed samples.json
 var samplesJSON []byte
+
+var allSamples = sync.OnceValues(func() (map[string]map[string]string, error) {
+	var all map[string]map[string]string
+	err := json.Unmarshal(samplesJSON, &all)
+	return all, err
+})
+
+// samplesOf are the samples of the voices offered: the page is sent none it
+// could not play.
+func samplesOf(vs []Voice) (json.RawMessage, error) {
+	all, err := allSamples()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]map[string]string{}
+	for _, v := range vs {
+		if s, ok := all[v.Model][v.Name]; ok {
+			if out[v.Model] == nil {
+				out[v.Model] = map[string]string{}
+			}
+			out[v.Model][v.Name] = s
+		}
+	}
+	return json.Marshal(out)
+}
 
 var pages = []serve.Page{{URI: reviewURI, HTML: reviewPage}}
 
@@ -169,9 +196,13 @@ func reviewData(ctx context.Context, raw json.RawMessage) (string, error) {
 	}
 	defer os.RemoveAll(scratch)
 
+	samples, err := samplesOf(vs)
+	if err != nil {
+		return "", err
+	}
 	d := pageData{Video: filepath.Base(p.video), Duration: c.seconds, Model: v.Model, Voice: v.Name,
 		Languages: backend.Languages(), Lines: make([]pageLine, len(lines)), Pace: wordsPerSecond, MaxChars: maxChars,
-		Samples: samplesJSON}
+		Samples: samples}
 	for _, m := range offeredModels {
 		var g *voiceGroup
 		for _, x := range vs {
