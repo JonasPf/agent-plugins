@@ -134,7 +134,7 @@ func data(t *testing.T, cs *mcp.ClientSession) pageSays {
 }
 
 // "The page's data: the video's length, a screenshot every 30 seconds, the
-// voices of both models with their prices and samples, the languages, the
+// voices of both models with their prices and a sample of each, the languages, the
 // limits, and each line, with its real length and its speech when it is
 // spoken in the voice chosen."
 func TestReviewDataHoldsWhatThePageShows(t *testing.T) {
@@ -183,8 +183,20 @@ func TestReviewDataHoldsWhatThePageShows(t *testing.T) {
 	if len(d.Languages) != 7 || d.Languages[1] != [2]string{"de", "German"} || d.Pace != 2.3 || d.MaxChars != 4500 {
 		t.Errorf("languages %v, pace %v, most characters %d", d.Languages, d.Pace, d.MaxChars)
 	}
-	if len(d.Samples[defaultSpeech]) != 10 || len(d.Samples["elevenlabs/eleven-flash-v2.5"]) != 21 {
-		t.Errorf("samples for %d and %d voices, want every voice of both", len(d.Samples[defaultSpeech]), len(d.Samples["elevenlabs/eleven-flash-v2.5"]))
+	// A sample of each voice offered, and of no other: the page is sent none
+	// it cannot play.
+	for _, g := range d.Voices {
+		if len(d.Samples[g.Model]) != len(g.Voices) {
+			t.Errorf("%d samples of %s, want one for each of %v", len(d.Samples[g.Model]), g.Model, g.Voices)
+		}
+		for _, v := range g.Voices {
+			if d.Samples[g.Model][v] == "" {
+				t.Errorf("%s of %s has no sample", v, g.Model)
+			}
+		}
+	}
+	if len(d.Samples) != len(d.Voices) {
+		t.Errorf("samples of %d models, want the %d offered", len(d.Samples), len(d.Voices))
 	}
 }
 
