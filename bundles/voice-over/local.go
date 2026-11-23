@@ -119,9 +119,12 @@ const (
 	chunkSeconds   = 30.0
 	overlapSeconds = 2.0
 	chunkStep      = chunkSeconds - overlapSeconds
-	// chunksPerRun is how many chunks one run of the helper hears: each run
-	// loads the model again, and every chunk it holds takes memory.
-	chunksPerRun = 8
+	// chunksPerRun is how many chunks one run of the helper hears. Each run
+	// loads the model again, about a second, and the helper decodes a run's
+	// chunks together, so each one held takes memory. On an M-series Mac
+	// (23 Nov 2026), runs of 1, 2, 4 and 8 chunks peaked at 1.5, 1.9, 2.6
+	// and 3.5 GB; a 10-minute video takes about 51, 30, 28 and 24 s.
+	chunksPerRun = 2
 	// A phrase ends at a sentence's end, at a pause this long, and at a
 	// comma once it is this long.
 	pauseEnds = 0.6

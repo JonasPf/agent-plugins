@@ -227,6 +227,36 @@ func TestTranscribeWithNoKeyRunsOnThisMachine(t *testing.T) {
 	}
 }
 
+// A long recording is heard two chunks to a run: the helper decodes the
+// sounds of one run together, and each 30 s chunk takes about 0.3 GB more
+// (measured 23 Nov 2026: 1.5 GB for one chunk, 1.9 for two, 3.5 for eight).
+func TestTranscribeOnThisMachineHearsTwoChunksAtATime(t *testing.T) {
+	dir := t.TempDir()
+	servetest.InDir(t, dir)
+	bands(t, "long.mov", true, "red:45", "green:45")
+	t.Setenv(keyName, "")
+	t.Setenv(backendName, "")
+	withLocalModels(t)
+	cs := servetest.Client(t, manifest, tools, runs, pages...)
+
+	res := servetest.Call(t, cs, "voiceover_transcribe", `{"video":"long.mov"}`)
+	if res.Error {
+		t.Fatalf("voiceover_transcribe: %s", res.Text)
+	}
+	// Chunks start every 28 s: at 0, 28, 56 and 84 s.
+	if got := mustRead(t, filepath.Join(dir, "helper-runs.txt")); got != "2\n2\n" {
+		t.Errorf("sounds per run = %q, want two runs of two", got)
+	}
+	// The stand-in hears the same sentence at the start of every chunk; the
+	// words of a later chunk before its cut, a second in, are the earlier
+	// chunk's.
+	want := "[0.00–1.20] So in this case\n[2.50–4.10] we use Blockdaemon.\n" +
+		"[30.50–32.10] we use Blockdaemon.\n[58.50–60.10] we use Blockdaemon.\n[86.50–88.10] we use Blockdaemon.\n"
+	if got := mustRead(t, filepath.Join(dir, "long.voiceover", "segments.txt")); got != want {
+		t.Errorf("segments.txt = %q, want %q", got, want)
+	}
+}
+
 // "The backend setting chooses: openrouter, local, or auto, which is
 // OpenRouter when a key is set and this machine when not. Anything else is
 // refused, naming the three."

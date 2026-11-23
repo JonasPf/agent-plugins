@@ -53,8 +53,11 @@ Reads the video and writes down what is said in it, with times.
 - **On this machine** (`backend` `local`, or `auto` with no key): sherpa-onnx 1.13.8's
   `sherpa-onnx-offline` with `nvidia/parakeet-tdt-0.6b-v3` (int8, CC-BY-4.0), which gives every
   token's start and length. The sound is cut into 16-bit WAV chunks of 30 s, mono, 16 kHz, each
-  overlapping the next by 2 s, eight to a run of the helper; a word in an overlap is taken from
-  the chunk where it is further from the edge. A line of `segments.txt` ends at a sentence's end,
+  overlapping the next by 2 s, two to a run of the helper (it decodes a run's chunks together,
+  each about 0.3 GB more: two peak near 1.9 GB). Two chunks meet in the middle of their
+  overlap. The later one carries on after its own copy of the last word taken, the same word
+  starting within 0.4 s, so a word said at the cut is kept once. Where it has no copy, it
+  carries on from the cut. A line of `segments.txt` ends at a sentence's end,
   at a pause of 0.6 s, or at a comma once it is 4 s long, and runs from its first word's start
   to its last word's end. The chunks are made in the project folder and deleted after.
   `language` and `terms` are not used: the model finds the language itself and takes no words

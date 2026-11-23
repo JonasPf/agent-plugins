@@ -2,8 +2,12 @@
 # Stands in for sherpa-onnx's offline recognizer in tests: notes how it was
 # called, keeps the first sound it was given, and answers every sound with the
 # tokens of "So in this case we use Blockdaemon." and their times, one JSON
-# line each, as the real one does.
+# line each, as the real one does. helper-runs.txt gets a line for each run:
+# how many sounds it was given.
 for a; do printf '%s\n' "$a"; done > helper-args.txt
+n=0
+for a; do case $a in --*) ;; *) n=$((n + 1)) ;; esac; done
+echo $n >> helper-runs.txt
 for a; do
   case $a in
   --*) ;;
