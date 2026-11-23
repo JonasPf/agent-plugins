@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 // The local backend: the models run on this machine, through sherpa-onnx's
@@ -226,46 +227,91 @@ func (l *local) hear(ctx context.Context, chunks []string) ([]chunkHeard, error)
 }
 
 // placeWords joins the chunks' tokens into words at their times in the
-// whole recording. Where two chunks overlap they meet in the middle: a word
-// is taken from the chunk in which it starts further from the edge.
+// whole recording. Two chunks overlap by overlapSeconds and meet in its
+// middle, the cut. Each places the same word a little differently, so a word
+// said at the cut may start before it in one chunk and after it in the
+// other: the later chunk carries on after its own copy of the last word
+// taken, and only where it has none, from the cut.
 func placeWords(chunks []chunkHeard) []heardWord {
 	var words []heardWord
 	for k, c := range chunks {
 		offset := float64(k) * chunkStep
-		lo, hi := offset+overlapSeconds/2, offset+chunkStep+overlapSeconds/2
-		if k == 0 {
-			lo = 0
-		}
+		hi := offset + chunkStep + overlapSeconds/2
 		if k == len(chunks)-1 {
 			hi = math.Inf(1)
 		}
-		var mine []heardWord
-		for i, tok := range c.Tokens {
-			if i >= len(c.Timestamps) {
-				break
-			}
-			start := offset + c.Timestamps[i]
-			end := start + 0.3
-			if i < len(c.Durations) {
-				end = start + c.Durations[i]
-			} else if i+1 < len(c.Timestamps) {
-				end = min(offset+c.Timestamps[i+1], start+0.5)
-			}
-			text := strings.TrimLeft(tok, " ▁")
-			if text != tok || len(mine) == 0 {
-				mine = append(mine, heardWord{text, start, end})
-				continue
-			}
-			mine[len(mine)-1].text += text
-			mine[len(mine)-1].end = end
+		mine := wordsIn(c, offset)
+		from := 0
+		if k > 0 {
+			from = carryOn(mine, words, offset+overlapSeconds/2)
 		}
-		for _, w := range mine {
-			if w.start >= lo && w.start < hi && w.text != "" {
+		for _, w := range mine[from:] {
+			if w.start < hi {
 				words = append(words, w)
 			}
 		}
 	}
 	return words
+}
+
+// wordsIn joins one chunk's tokens into words, placed from the recording's
+// start.
+func wordsIn(c chunkHeard, offset float64) []heardWord {
+	var mine []heardWord
+	for i, tok := range c.Tokens {
+		if i >= len(c.Timestamps) {
+			break
+		}
+		start := offset + c.Timestamps[i]
+		end := start + 0.3
+		if i < len(c.Durations) {
+			end = start + c.Durations[i]
+		} else if i+1 < len(c.Timestamps) {
+			end = min(offset+c.Timestamps[i+1], start+0.5)
+		}
+		text := strings.TrimLeft(tok, " ▁")
+		if text != tok || len(mine) == 0 {
+			mine = append(mine, heardWord{text, start, end})
+			continue
+		}
+		mine[len(mine)-1].text += text
+		mine[len(mine)-1].end = end
+	}
+	return slices.DeleteFunc(mine, func(w heardWord) bool { return w.text == "" })
+}
+
+// sameWord is how far apart two chunks may place one word.
+const sameWord = 0.4
+
+// carryOn is where a chunk's words go on from the words already taken: after
+// its copy of the last of them, or, where it wrote that word differently or
+// did not hear it, from the cut and the last word's end.
+func carryOn(mine, taken []heardWord, cut float64) int {
+	from := cut
+	if len(taken) > 0 {
+		last := taken[len(taken)-1]
+		twin, near := -1, sameWord
+		for i, w := range mine {
+			if d := math.Abs(w.start - last.start); d <= near && plain(w.text) == plain(last.text) {
+				twin, near = i, d
+			}
+		}
+		if twin >= 0 {
+			return twin + 1
+		}
+		from = max(cut, last.end-0.1)
+	}
+	for i, w := range mine {
+		if w.start >= from {
+			return i
+		}
+	}
+	return len(mine)
+}
+
+// plain is a word without its case and the punctuation around it.
+func plain(w string) string {
+	return strings.ToLower(strings.TrimFunc(w, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }))
 }
 
 // phrases groups words into the transcript's lines: a line ends at a
