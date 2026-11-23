@@ -66,13 +66,12 @@ func withLocalModels(t *testing.T) (*downloads, string) {
 			url: srv.URL + "/" + file, sha256: hex.EncodeToString(sum[:]), size: int64(len(b))}
 	}
 	oldHelper, hadHelper := helpers[platform]
-	oldParakeet, oldSilero, oldKokoro := parakeet, silero, kokoro
+	oldParakeet, oldKokoro := parakeet, kokoro
 	helpers[platform] = pinned("sherpa-onnx 1.13.8", "fake-sherpa.tar.bz2")
 	parakeet = pinned("nvidia/parakeet-tdt-0.6b-v3", "fake-parakeet.tar.bz2")
-	silero = pinned("Silero VAD v5", "silero_vad_v5.onnx")
 	kokoro = pinned("Kokoro 82M", "fake-kokoro.tar.bz2")
 	t.Cleanup(func() {
-		parakeet, silero, kokoro = oldParakeet, oldSilero, oldKokoro
+		parakeet, kokoro = oldParakeet, oldKokoro
 		if hadHelper {
 			helpers[platform] = oldHelper
 		} else {
@@ -98,19 +97,12 @@ func TestDownloadUnpacksOnceAndKeepsIt(t *testing.T) {
 	if got := mustRead(t, filepath.Join(dir, "encoder.int8.onnx")); got != "a stand-in for encoder.int8.onnx\n" {
 		t.Errorf("the archive's own folder was not taken off its paths: encoder.int8.onnx holds %q", got)
 	}
-	vad, _, err := download(context.Background(), silero)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(vad, "silero_vad_v5.onnx")); err != nil {
-		t.Errorf("a file that is not an archive is not kept under its own name: %v", err)
-	}
 
 	if _, fetched, err := download(context.Background(), parakeet); err != nil || fetched {
 		t.Errorf("a second download = %v, %v; want what is there, downloaded nothing", fetched, err)
 	}
-	if got, _ := d.asked(); len(got) != 2 {
-		t.Errorf("asked the server %d times for two files, each once: %v", len(got), got)
+	if got, _ := d.asked(); len(got) != 1 {
+		t.Errorf("asked the server %d times for one file, want once: %v", len(got), got)
 	}
 	left, _ := filepath.Glob(filepath.Join(cache, "*.part"))
 	if len(left) != 0 {
@@ -175,7 +167,7 @@ func TestMain(m *testing.M) {
 	for p, a := range helpers {
 		helpers[p] = nowhere(a)
 	}
-	parakeet, silero, kokoro = nowhere(parakeet), nowhere(silero), nowhere(kokoro)
+	parakeet, kokoro = nowhere(parakeet), nowhere(kokoro)
 	code := m.Run()
 	os.RemoveAll(cache)
 	os.Exit(code)

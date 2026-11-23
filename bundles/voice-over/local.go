@@ -3,16 +3,18 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
 )
 
 // The local backend: the models run on this machine, through sherpa-onnx's
@@ -43,11 +45,6 @@ var (
 	parakeet = asset{"sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8", "nvidia/parakeet-tdt-0.6b-v3",
 		sherpaRelease + "asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
 		"1495e91b59d7fc53ddca91f3431758ec99f8fa253fdb0e1e851be0f72b14b0f9", 487211443}
-
-	// silero finds where someone speaks, which cuts the sound into phrases.
-	silero = asset{"silero_vad_v5", "Silero VAD v5",
-		sherpaRelease + "asr-models/silero_vad_v5.onnx",
-		"6b99cbfd39246b6706f98ec13c7c50c6b299181f2474fa05cbc8046acc274396", 2313101}
 
 	// kokoro speaks, in 54 voices, of which sherpa-onnx speaks the English
 	// ones. Apache-2.0; its espeak-ng-data is GPL-3.0, downloaded from
@@ -115,54 +112,231 @@ func (l *local) Ready(ctx context.Context) (string, error) {
 	return fmt.Sprintf("Downloaded once, into %s: %s.\n", root, strings.Join(got, ", ")), nil
 }
 
-// phrase is a line of the helper's output: "7.248 -- 8.204: Thank you."
-var phrase = regexp.MustCompile(`^(\d+(?:\.\d+)?) -- (\d+(?:\.\d+)?): (.*)$`)
+// The recording is heard in chunks, each written down by one run of the
+// helper with the time of every token, and those times are what a phrase's
+// start and end are made of.
+const (
+	chunkSeconds   = 30.0
+	overlapSeconds = 2.0
+	chunkStep      = chunkSeconds - overlapSeconds
+	// chunksPerRun is how many chunks one run of the helper hears. Each run
+	// loads the model again, about a second, and the helper decodes a run's
+	// chunks together, so each one held takes memory. On an M-series Mac
+	// (23 Nov 2026), runs of 1, 2, 4 and 8 chunks peaked at 1.5, 1.9, 2.6
+	// and 3.5 GB; a 10-minute video takes about 51, 30, 28 and 24 s.
+	chunksPerRun = 2
+	// A phrase ends at a sentence's end, at a pause this long, and at a
+	// comma once it is this long.
+	pauseEnds = 0.6
+	commaEnds = 4.0
+)
 
-// Transcribe has the voice detector cut the sound into phrases, and the model
-// write each down. The language and the terms are not used: the model finds
-// the language itself, and takes no words to expect.
+// chunkHeard is what the helper says of one chunk: its tokens, a token with a
+// space (or ▁) before it starting a word, each with its start and length in
+// seconds from the chunk's start.
+type chunkHeard struct {
+	Tokens     []string  `json:"tokens"`
+	Timestamps []float64 `json:"timestamps"`
+	Durations  []float64 `json:"durations"`
+}
+
+// heardWord is a word and when it was said, from the recording's start.
+type heardWord struct {
+	text       string
+	start, end float64
+}
+
+// Transcribe writes the recording down in chunks of chunkSeconds, each
+// overlapping the next by overlapSeconds so no word is lost at a cut. The
+// language and the terms are not used: the model finds the language itself,
+// and takes no words to expect.
 func (l *local) Transcribe(ctx context.Context, audio string, _ TranscribeOptions) ([]Segment, Cost, error) {
 	free := Cost{Known: true}
 	ff, err := findFFmpeg()
 	if err != nil {
 		return nil, free, err
 	}
-	// The helper reads 16-bit WAV, at the 16 kHz the model hears.
-	wav := strings.TrimSuffix(audio, filepath.Ext(audio)) + ".helper.wav"
-	defer os.Remove(wav)
-	if _, err := ff.run(ctx, "-i", audio, "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", wav); err != nil {
-		return nil, free, fmt.Errorf("could not make the sound into WAV for the model: %v", err)
+	dir, err := os.MkdirTemp(filepath.Dir(audio), "heard-")
+	if err != nil {
+		return nil, free, err
 	}
-	threads := min(runtime.NumCPU(), 8)
-	cmd := exec.CommandContext(ctx, l.in(helpers[platform], "bin", "sherpa-onnx-vad-with-offline-asr"),
-		"--silero-vad-model="+l.in(silero, "silero_vad_v5.onnx"),
-		// Phrases about as long as Whisper's: a word's time is found by
-		// spreading a phrase's words over it.
-		"--silero-vad-min-silence-duration=0.3",
-		"--silero-vad-max-speech-duration=15",
+	defer os.RemoveAll(dir)
+	// The helper hears 16-bit samples at 16 kHz; the chunks are cut from them
+	// here, as WAVs, which is what the helper reads.
+	raw := filepath.Join(dir, "all.pcm")
+	if _, err := ff.run(ctx, "-i", audio, "-ac", "1", "-ar", "16000", "-f", "s16le", "-c:a", "pcm_s16le", raw); err != nil {
+		return nil, free, fmt.Errorf("could not make the sound into samples for the model: %v", err)
+	}
+	pcm, err := os.ReadFile(raw)
+	if err != nil {
+		return nil, free, err
+	}
+	const perSecond = 16000 * 2
+	var chunks []string
+	for at := 0; at == 0 || at*perSecond < len(pcm); at += int(chunkStep) {
+		from, to := at*perSecond, min((at+int(chunkSeconds))*perSecond, len(pcm))
+		path := filepath.Join(dir, fmt.Sprintf("%04d.wav", len(chunks)))
+		if err := os.WriteFile(path, wavOf(pcm[from:to], 16000, 1), 0o644); err != nil {
+			return nil, free, err
+		}
+		chunks = append(chunks, path)
+		if to == len(pcm) {
+			break
+		}
+	}
+	var heard []chunkHeard
+	for i := 0; i < len(chunks); i += chunksPerRun {
+		got, err := l.hear(ctx, chunks[i:min(i+chunksPerRun, len(chunks))])
+		if err != nil {
+			return nil, free, err
+		}
+		heard = append(heard, got...)
+	}
+	return phrases(placeWords(heard)), free, nil
+}
+
+// hear runs the helper once over some chunks, and reads its one line of JSON
+// for each.
+func (l *local) hear(ctx context.Context, chunks []string) ([]chunkHeard, error) {
+	args := []string{
 		"--model-type=nemo_transducer",
-		"--encoder="+l.in(parakeet, "encoder.int8.onnx"),
-		"--decoder="+l.in(parakeet, "decoder.int8.onnx"),
-		"--joiner="+l.in(parakeet, "joiner.int8.onnx"),
-		"--tokens="+l.in(parakeet, "tokens.txt"),
-		"--num-threads="+strconv.Itoa(threads),
-		wav)
+		"--encoder=" + l.in(parakeet, "encoder.int8.onnx"),
+		"--decoder=" + l.in(parakeet, "decoder.int8.onnx"),
+		"--joiner=" + l.in(parakeet, "joiner.int8.onnx"),
+		"--tokens=" + l.in(parakeet, "tokens.txt"),
+		"--num-threads=" + strconv.Itoa(min(runtime.NumCPU(), 8)),
+	}
+	cmd := exec.CommandContext(ctx, l.in(helpers[platform], "bin", "sherpa-onnx-offline"), append(args, chunks...)...)
 	var out, said bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &said
 	if err := cmd.Run(); err != nil {
-		return nil, free, fmt.Errorf("the model on this machine stopped: %s", lastLine(said.String(), err.Error()))
+		return nil, fmt.Errorf("the model on this machine stopped: %s", lastLine(said.String(), err.Error()))
 	}
-	var segs []Segment
+	var heard []chunkHeard
 	for _, line := range strings.Split(out.String(), "\n") {
-		m := phrase.FindStringSubmatch(strings.TrimSpace(line))
-		if m == nil || strings.TrimSpace(m[3]) == "" {
+		if line = strings.TrimSpace(line); !strings.HasPrefix(line, "{") {
 			continue
 		}
-		start, _ := strconv.ParseFloat(m[1], 64)
-		end, _ := strconv.ParseFloat(m[2], 64)
-		segs = append(segs, Segment{start, end, strings.TrimSpace(m[3])})
+		var c chunkHeard
+		if err := json.Unmarshal([]byte(line), &c); err != nil {
+			return nil, fmt.Errorf("the model on this machine answered with what is not its JSON: %v", err)
+		}
+		heard = append(heard, c)
 	}
-	return segs, free, nil
+	if len(heard) != len(chunks) {
+		return nil, fmt.Errorf("the model on this machine heard %d of %d chunks: %s", len(heard), len(chunks), lastLine(said.String(), ""))
+	}
+	return heard, nil
+}
+
+// placeWords joins the chunks' tokens into words at their times in the
+// whole recording. Two chunks overlap by overlapSeconds and meet in its
+// middle, the cut. Each places the same word a little differently, so a word
+// said at the cut may start before it in one chunk and after it in the
+// other: the later chunk carries on after its own copy of the last word
+// taken, and only where it has none, from the cut.
+func placeWords(chunks []chunkHeard) []heardWord {
+	var words []heardWord
+	for k, c := range chunks {
+		offset := float64(k) * chunkStep
+		hi := offset + chunkStep + overlapSeconds/2
+		if k == len(chunks)-1 {
+			hi = math.Inf(1)
+		}
+		mine := wordsIn(c, offset)
+		from := 0
+		if k > 0 {
+			from = carryOn(mine, words, offset+overlapSeconds/2)
+		}
+		for _, w := range mine[from:] {
+			if w.start < hi {
+				words = append(words, w)
+			}
+		}
+	}
+	return words
+}
+
+// wordsIn joins one chunk's tokens into words, placed from the recording's
+// start.
+func wordsIn(c chunkHeard, offset float64) []heardWord {
+	var mine []heardWord
+	for i, tok := range c.Tokens {
+		if i >= len(c.Timestamps) {
+			break
+		}
+		start := offset + c.Timestamps[i]
+		end := start + 0.3
+		if i < len(c.Durations) {
+			end = start + c.Durations[i]
+		} else if i+1 < len(c.Timestamps) {
+			end = min(offset+c.Timestamps[i+1], start+0.5)
+		}
+		text := strings.TrimLeft(tok, " ▁")
+		if text != tok || len(mine) == 0 {
+			mine = append(mine, heardWord{text, start, end})
+			continue
+		}
+		mine[len(mine)-1].text += text
+		mine[len(mine)-1].end = end
+	}
+	return slices.DeleteFunc(mine, func(w heardWord) bool { return w.text == "" })
+}
+
+// sameWord is how far apart two chunks may place one word.
+const sameWord = 0.4
+
+// carryOn is where a chunk's words go on from the words already taken: after
+// its copy of the last of them, or, where it wrote that word differently or
+// did not hear it, from the cut and the last word's end.
+func carryOn(mine, taken []heardWord, cut float64) int {
+	from := cut
+	if len(taken) > 0 {
+		last := taken[len(taken)-1]
+		twin, near := -1, sameWord
+		for i, w := range mine {
+			if d := math.Abs(w.start - last.start); d <= near && plain(w.text) == plain(last.text) {
+				twin, near = i, d
+			}
+		}
+		if twin >= 0 {
+			return twin + 1
+		}
+		from = max(cut, last.end-0.1)
+	}
+	for i, w := range mine {
+		if w.start >= from {
+			return i
+		}
+	}
+	return len(mine)
+}
+
+// plain is a word without its case and the punctuation around it.
+func plain(w string) string {
+	return strings.ToLower(strings.TrimFunc(w, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }))
+}
+
+// phrases groups words into the transcript's lines: a line ends at a
+// sentence's end, at a pause, or at a comma once it is commaEnds long.
+func phrases(words []heardWord) []Segment {
+	var segs []Segment
+	var cur []string
+	start := 0.0
+	for i, w := range words {
+		if len(cur) == 0 {
+			start = w.start
+		}
+		cur = append(cur, w.text)
+		last := w.text[len(w.text)-1]
+		end := i+1 == len(words) || strings.ContainsRune(".?!", rune(last)) ||
+			words[i+1].start-w.end >= pauseEnds || strings.ContainsRune(",;:", rune(last)) && w.end-start >= commaEnds
+		if end {
+			segs = append(segs, Segment{start, w.end, strings.Join(cur, " ")})
+			cur = nil
+		}
+	}
+	return segs
 }
 
 // Voices are Kokoro's English voices, free; af_heart, its best, is the

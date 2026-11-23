@@ -89,7 +89,7 @@ func newTranscriber() (Transcriber, error) {
 		return nil, err
 	}
 	if b == "local" {
-		return newLocal(helpers[platform], parakeet, silero)
+		return newLocal(helpers[platform], parakeet)
 	}
 	return newOpenRouter()
 }
