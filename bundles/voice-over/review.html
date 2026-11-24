@@ -614,7 +614,9 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
     if (!g) return;
     e.preventDefault();
     g.setPointerCapture(e.pointerId);
-    g.focus({ preventScroll: true });
+    // A mouse press is the operator's at once, a touch only when it lifts: until then a page in a
+    // host's frame may not take the focus, so a touch's handle gets it when the drag ends.
+    if (!navigator.userActivation || navigator.userActivation.isActive) g.focus({ preventScroll: true });
     var card = g.closest('.line'), l = find(Number(card.dataset.id));
     card.classList.add('moving');
     drag = { line: l, card: card, from: l.at, y: e.clientY, y0: e.clientY, far: false, grab: e.clientY - card.getBoundingClientRect().top };
