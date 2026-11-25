@@ -92,7 +92,7 @@ func newTranscriber() (Transcriber, error) {
 		return nil, err
 	}
 	if b == "local" {
-		return newLocal(helpers[platform], parakeet)
+		return newLocal(forHearing, helpers[platform], parakeet)
 	}
 	return newOpenRouter()
 }
@@ -103,7 +103,7 @@ func newSpeaker() (Speaker, error) {
 		return nil, err
 	}
 	if b == "local" {
-		return newLocal(helpers[platform], kokoro)
+		return newLocal(forSpeaking, helpers[platform], kokoro)
 	}
 	return newOpenRouter()
 }
