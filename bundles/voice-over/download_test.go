@@ -42,6 +42,10 @@ func (d *downloads) asked() ([]string, []string) {
 // models, served by a test server, with a cache of the test's own.
 func withLocalModels(t *testing.T) (*downloads, string) {
 	t.Helper()
+	// What this machine's memory allows is left unread, so a test runs alike
+	// in any machine or container; TestThisMachineRefusesWorkItHasNoMemoryFor
+	// sets it.
+	withMemory(t, 0, nil)
 	d := &downloads{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		d.mu.Lock()

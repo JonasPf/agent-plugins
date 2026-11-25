@@ -103,17 +103,18 @@ var speaking sync.Mutex
 // local runs what it needs on this machine, once downloaded: the helper and
 // either the transcription models or the speech model.
 type local struct {
+	work  memoryNeed
 	needs []asset
 	dirs  map[string]string // by asset name, the folder it was unpacked to
 }
 
-func newLocal(needs ...asset) (*local, error) {
+func newLocal(work memoryNeed, needs ...asset) (*local, error) {
 	if _, ok := helpers[platform]; !ok {
 		return nil, fmt.Errorf("nothing runs on this machine: sherpa-onnx is not built for %s. "+
 			"The operator sets an OpenRouter API key (%s) in this bundle's settings, with the backend auto or openrouter; "+
 			"until then, voiceover_frames still works", platform, keyName)
 	}
-	return &local{needs: needs, dirs: map[string]string{}}, nil
+	return &local{work: work, needs: needs, dirs: map[string]string{}}, nil
 }
 
 func (l *local) Name() string  { return "this machine" }
@@ -125,7 +126,11 @@ func (l *local) in(a asset, name ...string) string {
 }
 
 // Ready downloads what is not in the cache yet, and says what it downloaded.
+// Where there is not the memory to run it, it refuses before downloading.
 func (l *local) Ready(ctx context.Context) (string, error) {
+	if err := roomFor(l.work); err != nil {
+		return "", err
+	}
 	var got []string
 	for _, a := range l.needs {
 		dir, fetched, err := download(ctx, a)

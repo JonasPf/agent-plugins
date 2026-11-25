@@ -70,6 +70,16 @@ Reads the video and writes down what is said in it, with times.
   is carried on by the next call; one that does not match its digest is thrown away. sherpa-onnx
   stays at 1.13.8 because 2.0 drops every word missing from Kokoro's lexicon, numbers included
   (k2-fsa/sherpa-onnx#4139), and the speech here needs those spoken.
+- On this machine, transcribing needs about 2 GB of memory and speaking about 1 GB: one run of
+  the helper peaked at 1.9 GB on two chunks, and Kokoro at 0.6 GB on a line of 423 characters.
+  Where the machine, or the container it runs in, allows less, `voiceover_transcribe` and
+  `voiceover_render` refuse before downloading anything. The refusal says how much there is and
+  that an OpenRouter key does the work instead. The machine's memory is asked of the kernel
+  (`sysinfo`, Linux only). A container's is the tightest cgroup limit (v2 `memory.max` or v1
+  `memory.limit_in_bytes`) from this process's cgroup, named in `/proc/self/cgroup`, up to the
+  root. The agent lets a bundle read `/sys/fs/cgroup`, which the manifest asks for, and not
+  `/proc`; without it, the cgroup is the root of the container's own namespace. Where neither is
+  known, as on a Mac, nothing is refused. **Built.**
 
 ### `voiceover_frames {video, at?: [seconds]}`
 
