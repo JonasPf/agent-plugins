@@ -22,10 +22,11 @@ type pageSays struct {
 	Step     int     `json:"step"`
 	Shots    []string
 	Voices   []struct {
-		Name   string   `json:"name"`
-		Model  string   `json:"model"`
-		Price  float64  `json:"price"`
-		Voices []string `json:"voices"`
+		Name     string   `json:"name"`
+		Model    string   `json:"model"`
+		Price    float64  `json:"price"`
+		Language string   `json:"language"`
+		Voices   []string `json:"voices"`
 	} `json:"voices"`
 	Model  string `json:"model"`
 	Voice  string `json:"voice"`
@@ -186,6 +187,9 @@ func TestReviewDataHoldsWhatThePageShows(t *testing.T) {
 	// A sample of each voice offered, and of no other: the page is sent none
 	// it cannot play.
 	for _, g := range d.Voices {
+		if g.Language != "" {
+			t.Errorf("%s is said to speak %q only, where it speaks every language offered", g.Model, g.Language)
+		}
 		if len(d.Samples[g.Model]) != len(g.Voices) {
 			t.Errorf("%d samples of %s, want one for each of %v", len(d.Samples[g.Model]), g.Model, g.Voices)
 		}

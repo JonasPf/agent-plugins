@@ -64,6 +64,9 @@ type Voice struct {
 	PerMillion float64
 	// Default is the voice spoken in when none was chosen.
 	Default bool
+	// Language is the one language the voice speaks, as code and name, or
+	// none when it speaks every language of its backend's.
+	Language [2]string
 }
 
 // chosenBackend is where the bundle's settings say to transcribe and speak:

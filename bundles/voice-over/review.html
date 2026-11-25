@@ -672,9 +672,14 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
   });
 
   // The controls.
+  // A group whose voices speak only one language says which.
+  function languageName(code) {
+    var l = DATA.languages.find(function (l) { return l[0] === code; });
+    return l ? l[1] : code;
+  }
   DATA.voices.forEach(function (g, i) {
     var group = document.createElement('optgroup');
-    group.label = g.name + ' · $' + g.price.toFixed(0) + ' per million characters';
+    group.label = g.name + (g.language ? ', in ' + languageName(g.language) : '') + ' · $' + g.price.toFixed(0) + ' per million characters';
     g.voices.forEach(function (v) {
       var option = new Option(v, i + '|' + v);
       option.selected = g.model === DATA.model && v === DATA.voice;
@@ -693,7 +698,21 @@ select { background: var(--panel); border: 1px solid var(--line); padding: 7px 9
   el('voice').addEventListener('change', function () { hear(); update(); });
   el('lang').add(new Option('Keep as written', ''));
   DATA.languages.forEach(function (l) { el('lang').add(new Option(l[1], l[0])); });
-  el('lang').addEventListener('change', update);
+  // A language to translate into leaves only the voices that speak it; a voice
+  // that spoke another gives way to the first that speaks it.
+  function pair() {
+    var lang = el('lang').value, voice = el('voice');
+    voice.querySelectorAll('optgroup').forEach(function (group, i) {
+      var g = DATA.voices[i];
+      group.disabled = !!lang && !!g.language && g.language !== lang;
+    });
+    var picked = voice.options[voice.selectedIndex];
+    if (picked && picked.parentNode.disabled) {
+      var first = [].find.call(voice.options, function (o) { return !o.parentNode.disabled; });
+      if (first) first.selected = true;
+    }
+  }
+  el('lang').addEventListener('change', function () { pair(); update(); });
   el('undo').addEventListener('click', function () {
     if (!history.length) return;
     lines = JSON.parse(history.pop());

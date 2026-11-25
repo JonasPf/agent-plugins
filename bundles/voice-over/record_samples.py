@@ -3,9 +3,9 @@
 
 Usage: python3 bundles/voice-over/record_samples.py
 
-Each of Kokoro's voices in local.go says "Hello World 1 2 3", spoken the way
-local.go's Speak speaks a line and levelled the way render.go's level levels
-one, so voices compare at one loudness. The MP3s go into samples.json, under
+Each of Kokoro's voices in local.go says "Hello World 1 2 3" in its own
+language, spoken the way local.go's Speak speaks a line and levelled the way
+render.go's level levels one, so voices compare at one loudness. The MP3s go into samples.json, under
 hexgrad/kokoro-82m, beside the other backends' samples, which are kept as they
 are. Run it when kokoroVoices changes.
 
@@ -25,7 +25,17 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = os.path.join(HERE, "samples.json")
 MODEL = "hexgrad/kokoro-82m"
-LINE = "Hello World 1 2 3"
+# By a voice name's first letter, as kokoroLanguages in local.go: the line it
+# says, and the language espeak-ng reads it in (none for English, which is read
+# from the lexicon of its accent).
+LINES = {
+    "a": ("Hello World 1 2 3", None),
+    "b": ("Hello World 1 2 3", None),
+    "e": ("Hola mundo 1 2 3", "es"),
+    "f": ("Bonjour le monde 1 2 3", "fr"),
+    "i": ("Ciao mondo 1 2 3", "it"),
+    "p": ("Olá mundo 1 2 3", "pt-br"),
+}
 RATE = 24000
 TARGET_DB = -20.0
 TRIM = ("silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
@@ -39,12 +49,12 @@ def cache():
 
 
 def voices():
-    """kokoroVoices from local.go, in order: a voice's index is its speaker id."""
+    """kokoroVoices from local.go: each voice's name and speaker id."""
     src = open(os.path.join(HERE, "local.go")).read()
-    block = re.search(r"var kokoroVoices = \[\]string\{(.*?)\}", src, re.S)
+    block = re.search(r"var kokoroVoices = \[\]kokoroVoice\{\n(.*?)\n\}", src, re.S)
     if not block:
         sys.exit("local.go has no kokoroVoices")
-    return re.findall(r'"(\w+)"', block.group(1))
+    return [(name, int(sid)) for name, sid in re.findall(r'\{"(\w+)", (\d+)\}', block.group(1))]
 
 
 def ffmpeg(*args, **kw):
@@ -62,13 +72,15 @@ def main():
     samples[MODEL] = {}
     with tempfile.TemporaryDirectory() as tmp:
         raw, trimmed = os.path.join(tmp, "raw.wav"), os.path.join(tmp, "trimmed.wav")
-        for sid, voice in enumerate(voices()):
+        for voice, sid in voices():
+            line, lang = LINES[voice[0]]
             lexicon = "lexicon-gb-en.txt" if voice.startswith("b") else "lexicon-us-en.txt"
             subprocess.run([tts[0], f"--kokoro-model={kokoro}/model.int8.onnx",
                             f"--kokoro-voices={kokoro}/voices.bin", f"--kokoro-tokens={kokoro}/tokens.txt",
                             f"--kokoro-lexicon={kokoro}/{lexicon}", f"--kokoro-data-dir={kokoro}/espeak-ng-data",
                             f"--num-threads={min(os.cpu_count() or 1, 8)}", f"--sid={sid}",
-                            f"--output-filename={raw}", LINE], capture_output=True, check=True)
+                            *([f"--kokoro-lang={lang}"] if lang else []),
+                            f"--output-filename={raw}", line], capture_output=True, check=True)
             ffmpeg("-i", raw, "-ac", "1", "-ar", str(RATE), "-af", TRIM, trimmed)
             report = ffmpeg("-i", trimmed, "-af", "volumedetect", "-f", "null", "-", text=True).stderr
             mean = re.search(r"mean_volume: (-?[\d.]+) dB", report)
