@@ -263,16 +263,21 @@ func speakingCost(p project, lines []scriptLine, vs []Voice, name string) string
 		count(todo, "line"), len(lines)-todo, chars, dollars(float64(chars)*v.PerMillion/1e6), v.Name, v.ModelName, v.PerMillion)
 }
 
-// voiceList is the voices, one model a line.
+// voiceList is the voices, one model a line, or one model and language where
+// each voice speaks only its own.
 func voiceList(vs []Voice) string {
 	var b strings.Builder
 	b.WriteString("Voices, one for the whole video:\n")
 	for i := 0; i < len(vs); {
 		j, names := i, []string{}
-		for ; j < len(vs) && vs[j].Model == vs[i].Model; j++ {
+		for ; j < len(vs) && vs[j].Model == vs[i].Model && vs[j].Language == vs[i].Language; j++ {
 			names = append(names, vs[j].Name)
 		}
-		fmt.Fprintf(&b, "  %s, $%g per million characters: %s\n", vs[i].ModelName, vs[i].PerMillion, strings.Join(names, ", "))
+		model := vs[i].ModelName
+		if vs[i].Language[1] != "" {
+			model += ", in " + vs[i].Language[1]
+		}
+		fmt.Fprintf(&b, "  %s, $%g per million characters: %s\n", model, vs[i].PerMillion, strings.Join(names, ", "))
 		i = j
 	}
 	return b.String()

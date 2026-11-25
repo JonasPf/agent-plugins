@@ -129,6 +129,87 @@ func TestTheReviewPageInABrowserFromALink(t *testing.T) {
 	checkReviewPage(t, b, l, dir, true)
 }
 
+// "On this machine each voice speaks one language. The page groups the voices
+// by it, and a language picked to translate into leaves only its own voices to
+// pick, moving the voice to the first of them when it spoke another."
+func TestTheReviewPageOnThisMachinePairsVoicesWithLanguages(t *testing.T) {
+	chromePath(t)
+	servetest.InDir(t, t.TempDir())
+	bands(t, "clip.mov", true, "red:4")
+	t.Setenv(keyName, "")
+	t.Setenv(backendName, "local")
+	withLocalModels(t)
+	writeScript(t, [3]float64{1, 440, 1})
+	h := newAppHost(t, pageClient(t))
+	b := newBrowser(t)
+	h.open(b, "clip.mov")
+
+	type groupShown struct {
+		Label    string
+		Disabled bool
+		Voices   int
+	}
+	groups := func() []groupShown {
+		var out []groupShown
+		b.in(`[...document.querySelectorAll('#voice optgroup')].map(g => ({ Label: g.label, Disabled: g.disabled, Voices: g.children.length }))`, &out)
+		return out
+	}
+	open := func() []string {
+		var on []string
+		for _, g := range groups() {
+			if !g.Disabled {
+				on = append(on, g.Label)
+			}
+		}
+		return on
+	}
+	voice := func() string { return b.inStr(`document.getElementById('voice').value.split('|')[1]`) }
+	pick := func(value string) {
+		b.in(fmt.Sprintf(`(() => { const s = document.getElementById('voice'); s.value = %q; s.dispatchEvent(new Event('change', {bubbles:true})); })()`, value), nil)
+	}
+	language := func(code string) {
+		b.in(fmt.Sprintf(`(() => { const s = document.getElementById('lang'); s.value = %q; s.dispatchEvent(new Event('change', {bubbles:true})); })()`, code), nil)
+	}
+	in := func(lang string) string {
+		return "Kokoro 82M, on this machine, in " + lang + " · $0 per million characters"
+	}
+
+	var shown []string
+	for _, g := range groups() {
+		shown = append(shown, fmt.Sprintf("%s (%d)", g.Label, g.Voices))
+	}
+	want := []string{in("English") + " (28)", in("Spanish") + " (3)", in("French") + " (1)", in("Italian") + " (2)",
+		in("Brazilian Portuguese") + " (3)"}
+	if strings.Join(shown, "\n") != strings.Join(want, "\n") {
+		t.Errorf("the voices are grouped as\n%s\nwant\n%s", strings.Join(shown, "\n"), strings.Join(want, "\n"))
+	}
+	if voice() != "af_heart" || len(open()) != 5 {
+		t.Errorf("before a language is picked: voice %s, open %q, want af_heart and every group", voice(), open())
+	}
+
+	language("fr")
+	if voice() != "ff_siwis" || strings.Join(open(), "") != in("French") {
+		t.Errorf("French picked: voice %s, open %q, want ff_siwis and the French voices only", voice(), open())
+	}
+	if p := b.inStr(`document.getElementById('send').title`); !strings.Contains(p, "ff_siwis") || !strings.Contains(p, "translated into French") {
+		t.Errorf("Send says %q, want it to follow the voice and the language", p)
+	}
+	language("")
+	if voice() != "ff_siwis" || len(open()) != 5 {
+		t.Errorf("lines kept as written: voice %s, open %q, want ff_siwis kept and every group open", voice(), open())
+	}
+	language("es")
+	if voice() != "ef_dora" {
+		t.Errorf("Spanish picked: voice %s, want ef_dora, the first Spanish voice", voice())
+	}
+	pick("1|em_santa")
+	language("")
+	language("es")
+	if voice() != "em_santa" {
+		t.Errorf("Spanish picked again: voice %s, want em_santa kept, already a Spanish voice", voice())
+	}
+}
+
 // reviewFixtures is a 205-second video three times over: with a script not
 // spoken yet, with the same script spoken in gareth, and with no script.
 func reviewFixtures(t *testing.T) string {

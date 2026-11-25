@@ -122,11 +122,16 @@ Speaks every line that has no speech yet, puts each at its moment, and writes
 - `voice`: a voice name. Default: the one in `project.json`, else `gareth` (HeyGen Turbo). One
   voice for the whole video. An unknown voice is refused with the list of those there are.
 - **On this machine** (`backend` `local`, or `auto` with no key): Kokoro 82M (int8, Apache-2.0)
-  through sherpa-onnx 1.13.8's `sherpa-onnx-offline-tts`, in its 28 English voices, `af_heart` by
-  default; an American voice with the US lexicon, a British one with the British, and a word in
-  neither spoken by espeak-ng's rules. One line at a time on every core, each a 24 kHz WAV. Kokoro
-  is downloaded on first use as the transcription models are. Free. The review page offers
-  English only, and plays a sample of each voice, recorded by `record_samples.py`. **Built.**
+  through sherpa-onnx 1.13.8's `sherpa-onnx-offline-tts`, `af_heart` by default. Each voice
+  speaks one language, its name's first letter: 28 in English, American (a) with the US lexicon
+  or British (b) with the British, a word in neither spoken by espeak-ng's rules; 3 in Spanish
+  (e), 1 in French (f), 2 in Italian (i) and 3 in Brazilian Portuguese (p), every word read by
+  espeak-ng in that language (`--kokoro-lang`). Hindi is left out until someone who speaks it
+  has listened; Japanese 1.13.8 does not speak, and Chinese needs a lexicon of its own. One line
+  at a time on every core, each a 24 kHz WAV. Kokoro is downloaded on first use as the
+  transcription models are. Free. `voiceover_script` lists the voices by language; the review
+  page groups them so, offers those languages to translate into, and plays a sample of each
+  voice in its language, recorded by `record_samples.py`. **Built.**
 - Lines are spoken several at a time; a 429 is waited out and only the missing lines are asked
   for again. A line that still fails is named, and the lines already spoken are kept, so the
   next call pays only for the rest.
@@ -160,7 +165,9 @@ not spoken yet (lengths are then a guess, shown dashed).
 ### `voiceover_save_review {video, lines, voice, model, language?}` — for the page only
 
 What Send calls. Not sent to the model (`_meta.ui.visibility: ["app"]`). Writes `script.json` with every line where the operator
-left it, and the voice into `project.json`. With a `language`, notes a translation owed.
+left it, and the voice into `project.json`. With a `language`, notes a translation owed, and
+refuses a voice that speaks only another language. The page leaves only the voices that speak
+the language picked, and moves the voice to the first of them when it spoke another.
 
 The page then sends the conversation one message: how many lines, what is to be spoken and what
 it costs, and what the model does next:

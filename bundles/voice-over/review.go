@@ -125,10 +125,13 @@ type pageLine struct {
 }
 
 type voiceGroup struct {
-	Name   string   `json:"name"`
-	Model  string   `json:"model"`
-	Price  float64  `json:"price"`
-	Voices []string `json:"voices"`
+	Name  string  `json:"name"`
+	Model string  `json:"model"`
+	Price float64 `json:"price"`
+	// Language is the code of the one language these voices speak, or empty
+	// when they speak every language offered.
+	Language string   `json:"language,omitempty"`
+	Voices   []string `json:"voices"`
 }
 
 type pageData struct {
@@ -203,18 +206,14 @@ func reviewData(ctx context.Context, raw json.RawMessage) (string, error) {
 	d := pageData{Video: filepath.Base(p.video), Duration: c.seconds, Model: v.Model, Voice: v.Name,
 		Languages: backend.Languages(), Lines: make([]pageLine, len(lines)), Pace: wordsPerSecond, MaxChars: maxChars,
 		Samples: samples}
-	for _, m := range offeredModels {
-		var g *voiceGroup
-		for _, x := range vs {
-			if x.Model != m {
-				continue
-			}
-			if g == nil {
-				d.Voices = append(d.Voices, voiceGroup{Name: x.ModelName, Model: x.Model, Price: x.PerMillion})
-				g = &d.Voices[len(d.Voices)-1]
-			}
-			g.Voices = append(g.Voices, x.Name)
+	// The voices come grouped by model, and within one by the language they
+	// speak, as voiceList lists them.
+	for _, x := range vs {
+		if n := len(d.Voices); n == 0 || d.Voices[n-1].Model != x.Model || d.Voices[n-1].Language != x.Language[0] {
+			d.Voices = append(d.Voices, voiceGroup{Name: x.ModelName, Model: x.Model, Price: x.PerMillion, Language: x.Language[0]})
 		}
+		g := &d.Voices[len(d.Voices)-1]
+		g.Voices = append(g.Voices, x.Name)
 	}
 	if err := hearLines(ctx, ff, p, lines, v, scratch, &d); err != nil {
 		return "", err
@@ -385,6 +384,10 @@ func saveReview(ctx context.Context, raw json.RawMessage) (string, error) {
 	}
 	if v == nil {
 		return "", fmt.Errorf("%q is not a voice of %s", args.Voice, args.Model)
+	}
+	if language != "" && v.Language[0] != "" && v.Language[0] != args.Language {
+		return "", fmt.Errorf("%s speaks %s, not %s: pick a voice that speaks %s, or keep the lines as written",
+			v.Name, v.Language[1], language, language)
 	}
 
 	lines := make([]scriptLine, len(args.Lines))

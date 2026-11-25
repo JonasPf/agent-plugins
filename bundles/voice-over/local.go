@@ -46,9 +46,9 @@ var (
 		sherpaRelease + "asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
 		"1495e91b59d7fc53ddca91f3431758ec99f8fa253fdb0e1e851be0f72b14b0f9", 487211443}
 
-	// kokoro speaks, in 54 voices, of which sherpa-onnx speaks the English
-	// ones. Apache-2.0; its espeak-ng-data is GPL-3.0, downloaded from
-	// sherpa-onnx's release and never carried in the bundle.
+	// kokoro speaks, in 54 voices, of which kokoroVoices are offered here.
+	// Apache-2.0; its espeak-ng-data is GPL-3.0, downloaded from sherpa-onnx's
+	// release and never carried in the bundle.
 	kokoro = asset{"kokoro-int8-multi-lang-v1_0", "Kokoro 82M",
 		sherpaRelease + "tts-models/kokoro-int8-multi-lang-v1_0.tar.bz2",
 		"72c347230107ef8a31098ec4d468a605244beef5f1ed00db97efa13518800653", 132353410}
@@ -57,12 +57,44 @@ var (
 // localSpeech is Kokoro as a voice names its model.
 const localSpeech = "hexgrad/kokoro-82m"
 
-// kokoroVoices are Kokoro 1.0's English voices, each at its speaker number in
-// voices.bin: American (a) then British (b), women (f) then men (m).
-var kokoroVoices = []string{"af_alloy", "af_aoede", "af_bella", "af_heart", "af_jessica", "af_kore", "af_nicole",
-	"af_nova", "af_river", "af_sarah", "af_sky", "am_adam", "am_echo", "am_eric", "am_fenrir", "am_liam", "am_michael",
-	"am_onyx", "am_puck", "am_santa", "bf_alice", "bf_emma", "bf_isabella", "bf_lily", "bm_daniel", "bm_fable",
-	"bm_george", "bm_lewis"}
+// kokoroVoices are the voices of Kokoro 1.0 offered here, each with its
+// speaker number in voices.bin (sherpa-onnx's scripts/kokoro/v1.0), grouped by
+// language. A name's first letter is its language, as kokoroLanguages has it,
+// and its second the speaker, a woman (f) or a man (m). Hindi is left out
+// until someone who speaks it has listened; Japanese sherpa-onnx 1.13.8 does
+// not speak, and Chinese needs a lexicon and a dictionary of its own.
+var kokoroVoices = []kokoroVoice{
+	{"af_alloy", 0}, {"af_aoede", 1}, {"af_bella", 2}, {"af_heart", 3}, {"af_jessica", 4}, {"af_kore", 5},
+	{"af_nicole", 6}, {"af_nova", 7}, {"af_river", 8}, {"af_sarah", 9}, {"af_sky", 10}, {"am_adam", 11},
+	{"am_echo", 12}, {"am_eric", 13}, {"am_fenrir", 14}, {"am_liam", 15}, {"am_michael", 16}, {"am_onyx", 17},
+	{"am_puck", 18}, {"am_santa", 19}, {"bf_alice", 20}, {"bf_emma", 21}, {"bf_isabella", 22}, {"bf_lily", 23},
+	{"bm_daniel", 24}, {"bm_fable", 25}, {"bm_george", 26}, {"bm_lewis", 27},
+	{"ef_dora", 28}, {"em_alex", 29}, {"em_santa", 53},
+	{"ff_siwis", 30},
+	{"if_sara", 35}, {"im_nicola", 36},
+	{"pf_dora", 42}, {"pm_alex", 43}, {"pm_santa", 44},
+}
+
+type kokoroVoice struct {
+	name string
+	sid  int
+}
+
+// kokoroLanguages are the languages of Kokoro's voices, by a voice name's
+// first letter: the language, and what espeak-ng reads a line as. English,
+// American (a) or British (b), is read from Kokoro's lexicon of its accent
+// instead, and only a word missing from it by espeak-ng.
+var kokoroLanguages = map[byte]struct {
+	lang   [2]string
+	espeak string
+}{
+	'a': {[2]string{"en", "English"}, ""},
+	'b': {[2]string{"en", "English"}, ""},
+	'e': {[2]string{"es", "Spanish"}, "es"},
+	'f': {[2]string{"fr", "French"}, "fr"},
+	'i': {[2]string{"it", "Italian"}, "it"},
+	'p': {[2]string{"pt", "Brazilian Portuguese"}, "pt-br"},
+}
 
 // One line is spoken at a time, on every core: each run of the program loads
 // the model, and four at once would hold it four times.
@@ -339,45 +371,58 @@ func phrases(words []heardWord) []Segment {
 	return segs
 }
 
-// Voices are Kokoro's English voices, free; af_heart, its best, is the
-// default.
+// Voices are Kokoro's voices offered here, free, each speaking its own
+// language; af_heart, its best, is the default.
 func (l *local) Voices(context.Context) ([]Voice, error) {
 	out := make([]Voice, len(kokoroVoices))
 	for i, v := range kokoroVoices {
-		out[i] = Voice{Name: v, Model: localSpeech, ModelName: "Kokoro 82M, on this machine", Default: v == "af_heart"}
+		out[i] = Voice{Name: v.name, Model: localSpeech, ModelName: "Kokoro 82M, on this machine", Default: v.name == "af_heart",
+			Language: kokoroLanguages[v.name[0]].lang}
 	}
 	return out, nil
 }
 
-// Languages: sherpa-onnx speaks Kokoro's English voices, and a script
-// translated into another language would be read in an English voice.
-func (l *local) Languages() [][2]string { return [][2]string{{"en", "English"}} }
+// Languages are those Kokoro's voices speak here, in the order of the voices.
+func (l *local) Languages() [][2]string {
+	var out [][2]string
+	for _, v := range kokoroVoices {
+		if lang := kokoroLanguages[v.name[0]].lang; !slices.Contains(out, lang) {
+			out = append(out, lang)
+		}
+	}
+	return out
+}
 
-// Speak has Kokoro say the line into a 24 kHz WAV. A word missing from the
-// lexicon, a name or a number, is spoken by espeak-ng's rules instead.
+// Speak has Kokoro say the line into a 24 kHz WAV, in the voice's language.
+// In English a word missing from the lexicon, a name or a number, is spoken
+// by espeak-ng's rules instead; in another language every word is.
 func (l *local) Speak(ctx context.Context, text string, v Voice, out string) (string, Cost, error) {
 	free := Cost{Known: true}
-	sid := slices.Index(kokoroVoices, v.Name)
-	if v.Model != localSpeech || sid < 0 {
+	i := slices.IndexFunc(kokoroVoices, func(k kokoroVoice) bool { return k.name == v.Name })
+	if v.Model != localSpeech || i < 0 {
 		return "", free, fmt.Errorf("%s in %s is not a voice of this machine: choose one of Kokoro's", v.Name, v.Model)
 	}
 	lexicon := "lexicon-us-en.txt"
 	if strings.HasPrefix(v.Name, "b") {
 		lexicon = "lexicon-gb-en.txt"
 	}
+	args := []string{
+		"--kokoro-model=" + l.in(kokoro, "model.int8.onnx"),
+		"--kokoro-voices=" + l.in(kokoro, "voices.bin"),
+		"--kokoro-tokens=" + l.in(kokoro, "tokens.txt"),
+		"--kokoro-lexicon=" + l.in(kokoro, lexicon),
+		"--kokoro-data-dir=" + l.in(kokoro, "espeak-ng-data"),
+		"--num-threads=" + strconv.Itoa(min(runtime.NumCPU(), 8)),
+		"--sid=" + strconv.Itoa(kokoroVoices[i].sid),
+	}
+	if lang := kokoroLanguages[v.Name[0]].espeak; lang != "" {
+		args = append(args, "--kokoro-lang="+lang)
+	}
 	speaking.Lock()
 	defer speaking.Unlock()
 	path := out + ".wav"
 	cmd := exec.CommandContext(ctx, l.in(helpers[platform], "bin", "sherpa-onnx-offline-tts"),
-		"--kokoro-model="+l.in(kokoro, "model.int8.onnx"),
-		"--kokoro-voices="+l.in(kokoro, "voices.bin"),
-		"--kokoro-tokens="+l.in(kokoro, "tokens.txt"),
-		"--kokoro-lexicon="+l.in(kokoro, lexicon),
-		"--kokoro-data-dir="+l.in(kokoro, "espeak-ng-data"),
-		"--num-threads="+strconv.Itoa(min(runtime.NumCPU(), 8)),
-		"--sid="+strconv.Itoa(sid),
-		"--output-filename="+path,
-		text)
+		append(args, "--output-filename="+path, text)...)
 	said, err := cmd.CombinedOutput()
 	if err == nil {
 		_, err = os.Stat(path)

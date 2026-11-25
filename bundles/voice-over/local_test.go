@@ -58,10 +58,27 @@ func TestRenderWithNoKeySpeaksOnThisMachine(t *testing.T) {
 	if !strings.Contains(args, "--sid=26\n") || !strings.Contains(args, "--kokoro-lexicon="+filepath.Join(k, "lexicon-gb-en.txt")+"\n") {
 		t.Errorf("bm_george was not spoken as Kokoro's speaker 26 with the British lexicon:\n%s", args)
 	}
+	if strings.Contains(args, "--kokoro-lang") {
+		t.Errorf("an English voice was told a language: its words are read from the lexicon first:\n%s", args)
+	}
+
+	// A voice of another language speaks the line in it, by espeak-ng's rules.
+	for _, c := range []struct{ voice, sid, lang string }{
+		{"em_santa", "53", "es"}, {"ff_siwis", "30", "fr"}, {"im_nicola", "36", "it"}, {"pf_dora", "42", "pt-br"}} {
+		res = render(t, `{"video":"clip.mov","voice":"`+c.voice+`"}`)
+		if res.Error || !strings.Contains(res.Text, "voice "+c.voice+": 2 lines spoken now") {
+			t.Fatalf("voiceover_render in %s: %+v", c.voice, res)
+		}
+		calls := strings.Split(mustRead(t, filepath.Join(dir, "tts-args.txt")), "=====\n")
+		last := calls[len(calls)-2]
+		if !strings.Contains(last, "--sid="+c.sid+"\n") || !strings.Contains(last, "--kokoro-lang="+c.lang+"\n") {
+			t.Errorf("%s was not spoken as Kokoro's speaker %s in %s:\n%s", c.voice, c.sid, c.lang, last)
+		}
+	}
 }
 
-// "On this machine the script's voices are Kokoro's English ones, free, and
-// listing them downloads nothing."
+// "On this machine the script's voices are Kokoro's, free, listed by the
+// language each speaks, and listing them downloads nothing."
 func TestScriptOnThisMachineOffersKokorosVoices(t *testing.T) {
 	_, _ = narrated(t, "100", talk)
 	t.Setenv(keyName, "")
@@ -73,22 +90,32 @@ func TestScriptOnThisMachineOffersKokorosVoices(t *testing.T) {
 	if res.Error {
 		t.Fatalf("voiceover_script: %s", res.Text)
 	}
-	for _, want := range []string{"in af_heart", "Kokoro 82M", "$0 per million characters", "af_heart, af_jessica", "bm_george, bm_lewis"} {
+	free := "Kokoro 82M, on this machine, in %s, $0 per million characters: %s"
+	for _, want := range []string{"in af_heart",
+		fmt.Sprintf(free, "English", "af_alloy, af_aoede,"), "af_heart, af_jessica", "bm_george, bm_lewis\n",
+		fmt.Sprintf(free, "Spanish", "ef_dora, em_alex, em_santa\n"),
+		fmt.Sprintf(free, "French", "ff_siwis\n"),
+		fmt.Sprintf(free, "Italian", "if_sara, im_nicola\n"),
+		fmt.Sprintf(free, "Brazilian Portuguese", "pf_dora, pm_alex, pm_santa\n")} {
 		if !strings.Contains(res.Text, want) {
 			t.Errorf("the result does not say %q:\n%s", want, res.Text)
 		}
 	}
-	if strings.Contains(res.Text, "gareth") || strings.Contains(res.Text, "ef_dora") {
-		t.Errorf("a voice not offered on this machine is listed:\n%s", res.Text)
+	// Hindi, Japanese and Chinese are not spoken here.
+	for _, not := range []string{"gareth", "hf_alpha", "jf_alpha", "zf_xiaobei"} {
+		if strings.Contains(res.Text, not) {
+			t.Errorf("%s is listed, a voice not offered on this machine:\n%s", not, res.Text)
+		}
 	}
 	if got, _ := d.asked(); len(got) != 0 {
 		t.Errorf("listing the voices downloaded %v", got)
 	}
 }
 
-// "On this machine the review page offers Kokoro's voices and English only,
-// the one language they are spoken in here, and Send refuses another."
-func TestReviewOnThisMachineOffersEnglishOnly(t *testing.T) {
+// "On this machine the review page offers Kokoro's voices, grouped by the
+// language each speaks, and those languages to translate into. Send refuses
+// another language, and a voice that does not speak the one picked."
+func TestReviewOnThisMachinePairsEachVoiceWithItsLanguage(t *testing.T) {
 	dir := t.TempDir()
 	servetest.InDir(t, dir)
 	bands(t, "clip.mov", true, "red:4")
@@ -99,8 +126,18 @@ func TestReviewOnThisMachineOffersEnglishOnly(t *testing.T) {
 	cs := pageClient(t)
 
 	got := data(t, cs)
-	if len(got.Voices) != 1 || got.Voices[0].Model != localSpeech || got.Voices[0].Price != 0 || len(got.Voices[0].Voices) != 28 {
-		t.Errorf("voices = %+v, want Kokoro's 28 English voices, free", got.Voices)
+	groups := []struct {
+		lang string
+		n    int
+	}{{"en", 28}, {"es", 3}, {"fr", 1}, {"it", 2}, {"pt", 3}}
+	if len(got.Voices) != len(groups) {
+		t.Fatalf("voices = %+v, want Kokoro's in %d groups, one a language", got.Voices, len(groups))
+	}
+	for i, g := range got.Voices {
+		if g.Model != localSpeech || g.Price != 0 || g.Language != groups[i].lang || len(g.Voices) != groups[i].n {
+			t.Errorf("group %d: %d voices of %s in %q at $%g, want %d in %q, free", i, len(g.Voices), g.Model, g.Language, g.Price,
+				groups[i].n, groups[i].lang)
+		}
 	}
 	if got.Voice != "af_heart" || got.Model != localSpeech {
 		t.Errorf("voice %s on %s, want af_heart on %s", got.Voice, got.Model, localSpeech)
@@ -117,12 +154,25 @@ func TestReviewOnThisMachineOffersEnglishOnly(t *testing.T) {
 	if len(got.Samples) != 1 {
 		t.Errorf("samples of %d models, want Kokoro's only: the page is sent none it cannot offer", len(got.Samples))
 	}
-	if len(got.Languages) != 1 || got.Languages[0] != [2]string{"en", "English"} {
-		t.Errorf("languages = %v, want English only", got.Languages)
+	want := [][2]string{{"en", "English"}, {"es", "Spanish"}, {"fr", "French"}, {"it", "Italian"}, {"pt", "Brazilian Portuguese"}}
+	if fmt.Sprint(got.Languages) != fmt.Sprint(want) {
+		t.Errorf("languages = %v, want %v", got.Languages, want)
 	}
-	res := servetest.Call(t, cs, "voiceover_save_review", `{"video":"clip.mov","voice":"af_heart","model":"`+localSpeech+`","language":"de","lines":[{"at":1,"text":"Hallo"}]}`)
-	if !res.Error || !strings.Contains(res.Text, "de") {
+	send := func(voice, lang string) servetest.Result {
+		return servetest.Call(t, cs, "voiceover_save_review", `{"video":"clip.mov","voice":"`+voice+`","model":"`+localSpeech+
+			`","language":"`+lang+`","lines":[{"at":1,"text":"Hello"}]}`)
+	}
+	if res := send("af_heart", "de"); !res.Error || !strings.Contains(res.Text, `"de"`) {
 		t.Errorf("Send with German on this machine: %+v, want a refusal", res)
+	}
+	if res := send("ef_dora", "fr"); !res.Error || !strings.Contains(res.Text, "ef_dora speaks Spanish, not French") {
+		t.Errorf("Send with French in a Spanish voice: %+v, want a refusal saying so", res)
+	}
+	if res := send("ff_siwis", "fr"); res.Error || !strings.Contains(res.Text, "To be translated into French") {
+		t.Errorf("Send with French in a French voice: %+v", res)
+	}
+	if res := send("ef_dora", ""); res.Error {
+		t.Errorf("Send in a Spanish voice, the lines kept as written: %+v", res)
 	}
 }
 
